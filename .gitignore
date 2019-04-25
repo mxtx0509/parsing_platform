@@ -1,0 +1,19 @@
+reated by .ignore support plugin (hsz.mobi)
+### Python template
+# Byte-compiled / optimized / DLL files
+
+# Django stuff:
+*.log
+*.pth
+*.jpg
+*.png
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+data/
+models
+output
+logs
+outputs
+log

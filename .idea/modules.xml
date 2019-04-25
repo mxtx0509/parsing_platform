@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$USER_HOME$/code/human-pose-estimation.pytorch/.idea/human-pose-estimation.pytorch.iml" filepath="$USER_HOME$/code/human-pose-estimation.pytorch/.idea/human-pose-estimation.pytorch.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../../../data02/liuting14/ILSVRC/miss_class/.idea/miss_class.iml" filepath="$PROJECT_DIR$/../../../data02/liuting14/ILSVRC/miss_class/.idea/miss_class.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/pytorch-segmentation-toolbox.iml" filepath="$PROJECT_DIR$/.idea/pytorch-segmentation-toolbox.iml" />
+      <module fileurl="file://$USER_HOME$/code/pytorch-ssd/.idea/pytorch-ssd.iml" filepath="$USER_HOME$/code/pytorch-ssd/.idea/pytorch-ssd.iml" />
+    </modules>
+  </component>
+</project>

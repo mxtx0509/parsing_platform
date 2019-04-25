@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VcsDirectoryMappings">
+    <mapping directory="$USER_HOME$/code/human-pose-estimation.pytorch" vcs="Git" />
+    <mapping directory="$USER_HOME$/code/pytorch-ssd" vcs="Git" />
+  </component>
+</project>
