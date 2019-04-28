@@ -12,7 +12,7 @@ from dataset.datasets_origin import LIPDataSet
 import os
 import torch.nn.functional as F
 import torchvision.transforms as transforms
-from utils.miou import compute_mean_ioU
+from utils.miou import compute_mean_ioU,write_results
 from copy import deepcopy
 
 from config import config
@@ -190,7 +190,7 @@ def main():
 
     parsing_preds, scales, centers,time_list= valid(model, valloader, input_size, num_samples, len(gpus))
     mIoU = compute_mean_ioU(parsing_preds, scales, centers, args.num_classes, args.data_dir, input_size)
-    # write_results_CIHP(parsing_preds, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
+    write_results(parsing_preds, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
     # write_logits(parsing_logits, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
     
     

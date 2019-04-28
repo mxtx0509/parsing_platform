@@ -180,12 +180,17 @@ def compute_mean_ioU_file(preds_dir, num_classes, datadir, dataset='val'):
     return name_value
 
 def write_results(preds, scales, centers, datadir, dataset, result_dir, input_size=[473, 473]):
+    if not os.path.exists(result_dir):
+        os.makedirs(result_dir)
+        print ('Make Dir: ',result_dir)
     result_root =  os.path.join(result_dir,dataset+'_result/')
     if not os.path.exists(result_root):
         os.makedirs(result_root)
+        print ('Make Dir: ',result_root)
     vis_root =  os.path.join(result_dir,dataset+'_vis/')
     if not os.path.exists(vis_root):
         os.makedirs(vis_root)
+        print ('Make Dir: ',vis_root)
     palette = get_lip_palette() 
 
     # json_file = os.path.join(datadir, 'annotations', dataset + '.json')

@@ -6,11 +6,14 @@ from .loss import OhemCrossEntropy2d
 
 
 class CriterionAll(nn.Module):
-    def __init__(self, ignore_index=255):
+    def __init__(self, loss_type='softmax',ignore_index=255):
         super(CriterionAll, self).__init__()
         self.ignore_index = ignore_index
-        self.criterion = torch.nn.CrossEntropyLoss(ignore_index=ignore_index)
-        # self.criterion = OhemCrossEntropy2d(ignore_label=ignore_index)
+        #self.criterion = torch.nn.CrossEntropyLoss(ignore_index=ignore_index)
+        if loss_type == 'softmax':
+            self.criterion = torch.nn.CrossEntropyLoss(ignore_index=ignore_index)
+        if loss_type == 'ohem':
+            self.criterion = OhemCrossEntropy2d(ignore_label=ignore_index)
         print (self.criterion)
    
     def parsing_loss(self, preds, target):

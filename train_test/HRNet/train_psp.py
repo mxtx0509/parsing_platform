@@ -107,6 +107,8 @@ def get_arguments():
                         help="choose the number of recurrence.")
     parser.add_argument("--epochs", type=int, default=150,
                         help="choose the number of recurrence.")
+    parser.add_argument("--loss", type=str, default='softmax',
+                        help="")
     return parser.parse_args()
 
 
@@ -201,7 +203,7 @@ def main():
     
     model.cuda()
 
-    criterion = CriterionAll()
+    criterion = CriterionAll(loss_type=args.loss)
     criterion = DataParallelCriterion(criterion)
     criterion.cuda()
 

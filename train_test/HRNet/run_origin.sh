@@ -4,17 +4,18 @@ uname -a
 #env
 date
 CS_PATH='/home/liuwu1/notespace/dataset/'
-LR=1e-2
+LR=1e-3
 WD=5e-4
-BS=16
+BS=24
 GPU_IDS=0,1,2,3
-RESTORE_FROM='../../models/HRNetv2_synbn/LIP_epoch_149.pth'
+RESTORE_FROM='./models/CIHP_LIP_HRNetv2_bn/LIP_epoch_29.pth'
 INPUT_SIZE='480,480'
-SNAPSHOT_DIR='./models/CIHP_LIP_HRNetv2_bn/'
+SNAPSHOT_DIR='./models/CIHP_LIP_ohem/'
 DATASET='train'
 NUM_CLASSES=20
-EPOCHS=30
+EPOCHS=10
 START=0
+LOSS='ohem'
 
 if [[ ! -e ${SNAPSHOT_DIR} ]]; then
     mkdir -p  ${SNAPSHOT_DIR}
@@ -33,4 +34,5 @@ python -u train_psp.py --data-dir ${CS_PATH} \
        --dataset ${DATASET}\
        --num-classes ${NUM_CLASSES} \
        --epochs ${EPOCHS} \
-       --start-epoch ${START}
+       --start-epoch ${START} \
+       --loss ${LOSS}

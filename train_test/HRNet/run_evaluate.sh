@@ -7,7 +7,7 @@ INPUT_SIZE='480,480'
 SNAPSHOT_FROM='./models/CIHP_LIP_HRNetv2_bn/LIP_epoch_29.pth'
 DATASET='val'
 NUM_CLASSES=20
-OUTPUTS='./outputs/val_vis/'
+OUTPUTS='./outputs/CIHP_LIP_HRNetv2_bn29/'
 
 python evaluate.py --data-dir ${CS_PATH} \
        --gpu ${GPU_IDS} \
