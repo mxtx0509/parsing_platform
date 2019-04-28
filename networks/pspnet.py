@@ -90,6 +90,7 @@ class ResNet(nn.Module):
     def __init__(self, block, layers, num_classes):
         self.inplanes = 128
         super(ResNet, self).__init__()
+        print ('Model: PSPNet')
         self.conv1 = conv3x3(3, 64, stride=2)
         self.bn1 = BatchNorm2d(64)
         self.relu1 = nn.ReLU(inplace=False)
@@ -149,7 +150,6 @@ class ResNet(nn.Module):
         return [x, x_dsn]
 
 
-def Res_PSP(num_classes=21):
+def Res_Deeplab(num_classes=21):
     model = ResNet(Bottleneck,[3, 4, 23, 3], num_classes)
     return model
-
