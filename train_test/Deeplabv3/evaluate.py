@@ -2,18 +2,19 @@ import argparse
 import numpy as np
 import torch
 import time
+import sys
+sys.path.append('../../')  
 from PIL import Image as PILImage
 torch.multiprocessing.set_start_method("spawn", force=True)
-import sys
-sys.path.append('/export/home/zm/test/cvpr_workshop/parsing_pytorch/')  
 from torch.utils import data
-from networks.CE2P import Res_Deeplab
+from networks.deeplabv3 import Res_Deeplab
 from dataset.datasets_origin import LIPDataSet
 import os
 import torch.nn.functional as F
 import torchvision.transforms as transforms
-from utils.miou import compute_mean_ioU
+from utils.miou import compute_mean_ioU,write_results
 from copy import deepcopy
+
 
 DATA_DIRECTORY = '/ssd1/liuting14/Dataset/LIP/'
 DATA_LIST_PATH = './dataset/list/lip/valList.txt'
@@ -29,10 +30,16 @@ def get_arguments():
       A list of parsed arguments.
     """
     parser = argparse.ArgumentParser(description="CE2P Network")
+    parser.add_argument('--cfg',default='cls_hrnet_w48_sgd_lr5e-2_wd1e-4_bs32_x100.yaml',
+                        help='experiment configure file name',
+                        #required=True,
+                        type=str)
     parser.add_argument("--batch-size", type=int, default=1,
                         help="Number of images sent to the network in one step.")
     parser.add_argument("--data-dir", type=str, default=DATA_DIRECTORY,
                         help="Path to the directory containing the PASCAL VOC dataset.")
+    parser.add_argument("--snapshot_dir", type=str, default="",
+                        help="")
     parser.add_argument("--dataset", type=str, default='val',
                         help="Path to the file listing the images in the dataset.")
     parser.add_argument("--ignore-label", type=int, default=IGNORE_LABEL,
@@ -76,7 +83,6 @@ def valid(model, valloader, input_size, num_samples, gpus):
     time_list = []
     palette = get_lip_palette()  
     parsing_preds = np.zeros((num_samples, input_size[0], input_size[1]), dtype=np.uint8)
-    parsing_logits = np.zeros((num_samples, input_size[0], input_size[1], 20), dtype=np.float32)
 
     scales = np.zeros((num_samples, 2), dtype=np.float32)
     centers = np.zeros((num_samples, 2), dtype=np.int32)
@@ -112,11 +118,11 @@ def valid(model, valloader, input_size, num_samples, gpus):
                     parsing_preds[idx:idx + nums, :, :] = np.asarray(parsing, dtype=np.uint8)
                     idx += nums
             else:
-                parsing = outputs
+                parsing = outputs[0]
                 parsing = interp(parsing)
                 parsing = F.softmax(parsing,dim=1).data.cpu().numpy()
                 parsing = parsing.transpose(0, 2, 3, 1)  # NCHW NHWC
-                parsing_logits[idx:idx + num_images, :, :, :] = parsing
+
                 
                 parsing = np.asarray(np.argmax(parsing, axis=3), dtype=np.uint8)
                 parsing_preds[idx:idx + num_images, :, :] = parsing
@@ -129,15 +135,15 @@ def valid(model, valloader, input_size, num_samples, gpus):
             # break
 
     parsing_preds = parsing_preds[:num_samples, :, :]
-    parsing_logits = parsing_logits[:num_samples, :, :, :]
 
 
-    return parsing_preds, scales, centers, time_list,parsing_logits
+
+    return parsing_preds, scales, centers, time_list
 
 def main():
     """Create the model and start the evaluation process."""
     args = get_arguments()
-    
+
     print (args)
     os.environ["CUDA_VISIBLE_DEVICES"]=args.gpu
     gpus = [int(i) for i in args.gpu.split(',')]
@@ -180,9 +186,9 @@ def main():
     model.eval()
     model.cuda()
 
-    parsing_preds, scales, centers,time_list, parsing_logits = valid(model, valloader, input_size, num_samples, len(gpus))
+    parsing_preds, scales, centers,time_list= valid(model, valloader, input_size, num_samples, len(gpus))
     mIoU = compute_mean_ioU(parsing_preds, scales, centers, args.num_classes, args.data_dir, input_size)
-    # write_results_CIHP(parsing_preds, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
+    # write_results(parsing_preds, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
     # write_logits(parsing_logits, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
     
     

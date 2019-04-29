@@ -190,7 +190,7 @@ def main():
 
     parsing_preds, scales, centers,time_list= valid(model, valloader, input_size, num_samples, len(gpus))
     mIoU = compute_mean_ioU(parsing_preds, scales, centers, args.num_classes, args.data_dir, input_size)
-    write_results(parsing_preds, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
+    # write_results(parsing_preds, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
     # write_logits(parsing_logits, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
     
     

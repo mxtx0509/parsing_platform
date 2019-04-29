@@ -14,20 +14,156 @@ import logging
 import functools
 
 import numpy as np
-
+affine_par = True
 import torch
 import torch.nn as nn
 import torch._utils
 import torch.nn.functional as F
+from libs import InPlaceABN, InPlaceABNSync
+BatchNorm2d = functools.partial(InPlaceABNSync, activation='none')
 
-BN_MOMENTUM = 0.1
+
 logger = logging.getLogger(__name__)
 
 
 def conv3x3(in_planes, out_planes, stride=1):
-    """3x3 convolution with padding"""
+    "3x3 convolution with padding"
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
                      padding=1, bias=False)
+
+class ConvBnRelu(nn.Module):
+    def __init__(self, in_planes, out_planes, ksize, stride, pad, dilation=1,
+                 groups=1, has_bn=True, bn_eps=1e-5,
+                 has_relu=True, inplace=True, has_bias=False):
+        super(ConvBnRelu, self).__init__()
+        self.conv = nn.Conv2d(in_planes, out_planes, kernel_size=ksize,
+                              stride=stride, padding=pad,
+                              dilation=dilation, groups=groups, bias=has_bias)
+
+        self.has_bn = has_bn
+        self.has_relu= has_relu
+        if self.has_bn and self.has_relu:
+            self.bn = InPlaceABNSync(out_planes)
+        else:
+            if self.has_bn:
+                self.bn = BatchNorm2d(out_planes)
+            if self.has_relu:
+                self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.conv(x)
+        if self.has_bn and self.has_relu:
+            x = self.bn(x)
+        else:
+            if self.has_bn:
+                x = self.bn(x)
+            if self.has_relu:
+                x = self.relu(x)
+        return x
+
+class DeConvBnRelu(nn.Module):
+    def __init__(self, in_planes, out_planes, ksize, stride, pad, out_pad,
+                 groups=1, has_bn=True, bn_eps=1e-5,
+                 has_relu=True, inplace=True, has_bias=False):
+        super(DeConvBnRelu, self).__init__()
+        self.deconv =  nn.ConvTranspose2d(in_channels=in_planes,out_channels=out_planes,kernel_size=ksize,
+                                          stride=stride,padding=pad,output_padding=out_pad, bias=has_bias)
+
+        self.has_bn = has_bn
+        self.has_relu= has_relu
+        if self.has_bn and self.has_relu:
+            self.bn = InPlaceABNSync(out_planes)
+        else:
+            if self.has_bn:
+                self.bn = BatchNorm2d(out_planes)
+            if self.has_relu:
+                self.relu = nn.ReLU()
+    def forward(self, x):
+        x = self.deconv(x)
+        if self.has_bn and self.has_relu:
+            x = self.bn(x)
+        else:
+            if self.has_bn:
+                x = self.bn(x)
+            if self.has_relu:
+                x = self.relu(x)
+        
+        return x
+
+class SpatialPath(nn.Module):
+    def __init__(self, in_planes, out_planes):
+        super(SpatialPath, self).__init__()
+        inner_channel = 64
+        self.conv_7x7 = ConvBnRelu(in_planes, inner_channel, 7, 2, 3,
+                                     has_bn=True, 
+                                     has_relu=True, has_bias=False)
+        self.conv_3x3_1 = ConvBnRelu(inner_channel, inner_channel, 3, 1, 1,
+                                     has_bn=True, 
+                                     has_relu=True, has_bias=False)
+        self.conv_3x3_2 = ConvBnRelu(inner_channel, inner_channel*4, 3, 1, 1,
+                                     has_bn=True, 
+                                     has_relu=True, has_bias=False)
+        self.conv_1x1 = ConvBnRelu(inner_channel*4, out_planes, 1, 1, 0,
+                                   has_bn=True, 
+                                   has_relu=True, has_bias=False)
+
+    def forward(self, x):
+        x = self.conv_7x7(x)
+        x = self.conv_3x3_1(x)
+        x = self.conv_3x3_2(x)
+        output = self.conv_1x1(x)
+
+        return output
+
+class BraidModule(nn.Module):
+    def __init__(self, cp_inplane, sp_inplane, out_planes):
+        super(BraidModule, self).__init__()
+        inner_channel = 128
+        
+        self.deconv1 = DeConvBnRelu(inner_channel, inner_channel, 3, 2, 1, 1, has_bn=True, has_relu=True, has_bias=False)
+        self.ffm_cp = FeatureFusion(inner_channel*2, out_planes, 4)
+
+        self.conv_3x3 = ConvBnRelu(sp_inplane, inner_channel, 3, 2, 1,has_bn=True, has_relu=True, has_bias=False)
+        # self.conv_1x1 = ConvBnRelu(sp_inplane, inner_channel, 1, 1, 0,has_bn=True, has_relu=True, has_bias=False)
+        self.ffm_sp = FeatureFusion(inner_channel*2, out_planes, 4)
+
+    def forward(self, cp, sp):
+        cp_out = self.deconv1(cp)
+        # print ('BraidModule CP:',cp.size(), cp_out.size())
+        sp_out = self.conv_3x3(sp)
+        # print ('BraidModule SP:',sp.size(), sp_out.size())
+        cp_braid = self.ffm_cp(cp,sp_out)
+
+        sp_braid = self.ffm_sp(sp,cp_out)
+        # print ('BraidModule out:',cp_braid.size(), sp_braid.size())
+        return cp_braid, sp_braid
+
+
+class FeatureFusion(nn.Module):
+    def __init__(self, in_planes, out_planes,
+                 reduction=1):
+        super(FeatureFusion, self).__init__()
+        self.conv_1x1 = ConvBnRelu(in_planes, out_planes, 1, 1, 0,
+                                   has_bn=True, 
+                                   has_relu=True, has_bias=False)
+        self.channel_attention = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            ConvBnRelu(out_planes, out_planes // reduction, 1, 1, 0,
+                       has_bn=False, 
+                       has_relu=True, has_bias=False),
+            ConvBnRelu(out_planes // reduction, out_planes, 1, 1, 0,
+                       has_bn=False, 
+                       has_relu=False, has_bias=False),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x1, x2):
+        # x2 = F.interpolate(input=x2, size=(x1.size(2), x1.size(3)), mode='bilinear', align_corners=True)
+        fm = torch.cat([x1, x2], dim=1)
+        fm = self.conv_1x1(fm)
+        fm_se = self.channel_attention(fm)
+        output = fm + fm * fm_se
+        return output
 
 
 class BasicBlock(nn.Module):
@@ -36,7 +172,8 @@ class BasicBlock(nn.Module):
     def __init__(self, inplanes, planes, stride=1, downsample=None):
         super(BasicBlock, self).__init__()
         self.conv1 = conv3x3(inplanes, planes, stride)
-        self.bn1 = nn.BatchNorm2d(planes)
+        self.bn1 = InPlaceABNSync(planes)
+        
         self.relu = nn.ReLU(inplace=True)
         self.conv2 = conv3x3(planes, planes)
         self.bn2 = nn.BatchNorm2d(planes)
@@ -48,7 +185,7 @@ class BasicBlock(nn.Module):
 
         out = self.conv1(x)
         out = self.bn1(out)
-        out = self.relu(out)
+        # out = self.relu(out)
 
         out = self.conv2(out)
         out = self.bn2(out)
@@ -68,10 +205,10 @@ class Bottleneck(nn.Module):
     def __init__(self, inplanes, planes, stride=1, downsample=None):
         super(Bottleneck, self).__init__()
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(planes)
+        self.bn1 = InPlaceABNSync(planes)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
                                padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(planes)
+        self.bn2 = InPlaceABNSync(planes)
         self.conv3 = nn.Conv2d(planes, planes * self.expansion, kernel_size=1,
                                bias=False)
         self.bn3 = nn.BatchNorm2d(planes * self.expansion)
@@ -84,11 +221,11 @@ class Bottleneck(nn.Module):
 
         out = self.conv1(x)
         out = self.bn1(out)
-        out = self.relu(out)
+        #out = self.relu(out)
 
         out = self.conv2(out)
         out = self.bn2(out)
-        out = self.relu(out)
+        #out = self.relu(out)
 
         out = self.conv3(out)
         out = self.bn3(out)
@@ -106,6 +243,7 @@ class HighResolutionModule(nn.Module):
     def __init__(self, num_branches, blocks, num_blocks, num_inchannels,
                  num_channels, fuse_method, multi_scale_output=True):
         super(HighResolutionModule, self).__init__()
+        
         self._check_branches(
             num_branches, blocks, num_blocks, num_inchannels, num_channels)
 
@@ -118,7 +256,7 @@ class HighResolutionModule(nn.Module):
         self.branches = self._make_branches(
             num_branches, blocks, num_blocks, num_channels)
         self.fuse_layers = self._make_fuse_layers()
-        self.relu = nn.ReLU(False)
+        self.relu = nn.ReLU()
 
     def _check_branches(self, num_branches, blocks, num_blocks,
                         num_inchannels, num_channels):
@@ -149,8 +287,9 @@ class HighResolutionModule(nn.Module):
                 nn.Conv2d(self.num_inchannels[branch_index],
                           num_channels[branch_index] * block.expansion,
                           kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(num_channels[branch_index] * block.expansion),
+                BatchNorm2d(num_channels[branch_index] * block.expansion),
             )
+
 
         layers = []
         layers.append(block(self.num_inchannels[branch_index],
@@ -190,8 +329,9 @@ class HighResolutionModule(nn.Module):
                                   1,
                                   0,
                                   bias=False),
-                        nn.BatchNorm2d(num_inchannels[i]),
+                        BatchNorm2d(num_inchannels[i]),
                         nn.Upsample(scale_factor=2**(j-i), mode='nearest')))
+
                 elif j == i:
                     fuse_layer.append(None)
                 else:
@@ -203,15 +343,15 @@ class HighResolutionModule(nn.Module):
                                 nn.Conv2d(num_inchannels[j],
                                           num_outchannels_conv3x3,
                                           3, 2, 1, bias=False),
-                                nn.BatchNorm2d(num_outchannels_conv3x3)))
+                                BatchNorm2d(num_outchannels_conv3x3)))
+
                         else:
                             num_outchannels_conv3x3 = num_inchannels[j]
                             conv3x3s.append(nn.Sequential(
                                 nn.Conv2d(num_inchannels[j],
                                           num_outchannels_conv3x3,
                                           3, 2, 1, bias=False),
-                                nn.BatchNorm2d(num_outchannels_conv3x3),
-                                nn.ReLU(False)))
+                                InPlaceABNSync(num_outchannels_conv3x3)))
                     fuse_layer.append(nn.Sequential(*conv3x3s))
             fuse_layers.append(nn.ModuleList(fuse_layer))
 
@@ -248,16 +388,16 @@ blocks_dict = {
 
 class HighResolutionNet(nn.Module):
 
-    def __init__(self, cfg, **kwargs):
+    def __init__(self, cfg,num_classes=20,  **kwargs):
         super(HighResolutionNet, self).__init__()
-        print ('hrnet_v2_woM')
+        print ('Backbone: HRNetV2BN')
         self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1,
                                bias=False)
-        self.bn1 = nn.BatchNorm2d(64)
+        self.bn1 = InPlaceABNSync(64)
         self.conv2 = nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=1,
                                bias=False)
-        self.bn2 = nn.BatchNorm2d(64)
-        self.relu = nn.ReLU(inplace=True)
+        self.bn2 = InPlaceABNSync(64)
+        self.relu = nn.ReLU()
         self.layer1 = self._make_layer(Bottleneck, 64, 64, 4)
 
         self.stage2_cfg = cfg['MODEL']['EXTRA']['STAGE2']
@@ -287,26 +427,37 @@ class HighResolutionNet(nn.Module):
             num_channels[i] * block.expansion for i in range(len(num_channels))]
         self.transition3 = self._make_transition_layer(
             pre_stage_channels, num_channels)
+
         self.stage4, pre_stage_channels = self._make_stage(
             self.stage4_cfg, num_channels, multi_scale_output=True)
-        
+        #######
+        for p in self.parameters():
+            p.requires_grad = False
+        #######
         channels_list = [48, 96, 192, 384]
         conv1x1_modules=[]
         for i in range(4):
             conv1x1_modules.append(nn.Sequential(
                 nn.Conv2d(in_channels=channels_list[i], out_channels=15, kernel_size=1,
                           stride=1, padding=0, bias=False),
-                nn.BatchNorm2d(15),
-                nn.ReLU(inplace=True))
+                InPlaceABNSync(15))
                 )
         self.conv1x1_modules = nn.ModuleList(conv1x1_modules)
         self.conv1x1_last = nn.Sequential(
             nn.Conv2d(in_channels=60, out_channels=128, kernel_size=1,
                       stride=1, padding=0, bias=False),
-            nn.BatchNorm2d(128),
-            nn.ReLU(inplace=True)
+            InPlaceABNSync(128)
         )
-        self.last_layer = nn.Conv2d(128, 20, kernel_size=1, stride=1, padding=0, bias=True)
+        
+        self.spatial_path = SpatialPath(3, 128)
+        out_planes = 128
+        self.braid = BraidModule(128, 128, out_planes)
+        self.conv_cp = nn.Conv2d(out_planes, num_classes, kernel_size=1, padding=0, dilation=1, bias=True)
+        self.conv_sp = nn.Conv2d(out_planes, num_classes, kernel_size=1, padding=0, dilation=1, bias=True)
+        self.path_list = [self.spatial_path,self.braid, self.conv_cp, self.conv_sp] 
+        
+        
+        # self.last_layer = nn.Conv2d(128, 20, kernel_size=1, stride=1, padding=0, bias=True)
         '''
         # Classification Head
         self.incre_modules, self.downsamp_modules, \
@@ -343,7 +494,7 @@ class HighResolutionNet(nn.Module):
                           kernel_size=3,
                           stride=2,
                           padding=1),
-                nn.BatchNorm2d(out_channels),
+                BatchNorm2d(out_channels, momentum=BN_MOMENTUM),
                 nn.ReLU(inplace=True)
             )
 
@@ -358,7 +509,7 @@ class HighResolutionNet(nn.Module):
                 stride=1,
                 padding=0
             ),
-            nn.BatchNorm2d(2048),
+            BatchNorm2d(2048, momentum=BN_MOMENTUM),
             nn.ReLU(inplace=True)
         )
 
@@ -380,9 +531,7 @@ class HighResolutionNet(nn.Module):
                                   1,
                                   1,
                                   bias=False),
-                        nn.BatchNorm2d(
-                            num_channels_cur_layer[i]),
-                        nn.ReLU(inplace=True)))
+                        InPlaceABNSync(num_channels_cur_layer[i])))
                 else:
                     transition_layers.append(None)
             else:
@@ -394,8 +543,7 @@ class HighResolutionNet(nn.Module):
                     conv3x3s.append(nn.Sequential(
                         nn.Conv2d(
                             inchannels, outchannels, 3, 2, 1, bias=False),
-                        nn.BatchNorm2d(outchannels),
-                        nn.ReLU(inplace=True)))
+                        InPlaceABNSync(outchannels)))
                 transition_layers.append(nn.Sequential(*conv3x3s))
 
         return nn.ModuleList(transition_layers)
@@ -406,7 +554,7 @@ class HighResolutionNet(nn.Module):
             downsample = nn.Sequential(
                 nn.Conv2d(inplanes, planes * block.expansion,
                           kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(planes * block.expansion),
+                BatchNorm2d(planes * block.expansion),
             )
 
         layers = []
@@ -448,12 +596,13 @@ class HighResolutionNet(nn.Module):
         return nn.Sequential(*modules), num_inchannels
 
     def forward(self, x):
+        origin = x
         x = self.conv1(x)
         x = self.bn1(x)
-        x = self.relu(x)
+        # x = self.relu(x)
         x = self.conv2(x)
         x = self.bn2(x)
-        x = self.relu(x)
+        # x = self.relu(x)
         x = self.layer1(x)
 
         x_list = []
@@ -480,7 +629,7 @@ class HighResolutionNet(nn.Module):
                 x_list.append(y_list[i])
         y_list = self.stage4(x_list)
         
-        # print (y_list[0].size(),y_list[1].size(),y_list[2].size(),y_list[3].size())
+        
         y_out =[]
         for i in range(4):
             y_out.append(self.conv1x1_modules[i](y_list[i]))
@@ -491,24 +640,16 @@ class HighResolutionNet(nn.Module):
             y_resize.append(F.interpolate(input=y_out[i], size=(h, w), mode='bilinear', align_corners=True))
         y = torch.cat(y_resize, 1)
         # print (y.size())
-        y = self.conv1x1_last(y)
-        y = self.last_layer(y)
+        cp = self.conv1x1_last(y)
         
-        # Classification Head
-        '''
-        y = self.incre_modules[0](y_list[0])
-        for i in range(len(self.downsamp_modules)):
-            y = self.incre_modules[i+1](y_list[i+1]) + \
-                        self.downsamp_modules[i](y)
-        y = self.final_layer(y)
+        sp = self.spatial_path(origin)
+        cp_braid, sp_braid = self.braid(cp, sp)
+        seg1 = self.conv_cp(cp_braid)
+        seg2 = self.conv_sp(sp_braid)
+        # print (seg1.size(),seg2.size())
 
-        y = F.avg_pool2d(y, kernel_size=y.size()
-                             [2:]).view(y.size(0), -1)
-            
-        y = self.classifier(y)
-        '''
+        return [seg1,seg2,cp_braid]
 
-        return y
 
     def init_weights(self, pretrained='',):
         logger.info('=> init weights from normal distribution')
@@ -516,7 +657,7 @@ class HighResolutionNet(nn.Module):
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(
                     m.weight, mode='fan_out', nonlinearity='relu')
-            elif isinstance(m, nn.BatchNorm2d):
+            elif isinstance(m, BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
         if os.path.isfile(pretrained):
@@ -532,7 +673,7 @@ class HighResolutionNet(nn.Module):
             self.load_state_dict(model_dict)
 
 
-def get_cls_net(config, **kwargs):
-    model = HighResolutionNet(config, **kwargs)
+def get_cls_net(config, num_classes=20, **kwargs):
+    model = HighResolutionNet(config, num_classes=20, **kwargs)
     # model.init_weights()
     return model

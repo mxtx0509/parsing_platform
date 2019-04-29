@@ -1,15 +1,15 @@
 #!/bin/bash
 
-CS_PATH='/home/liuwu1/notespace/dataset/LIP/'
-BS=16
-GPU_IDS='3'
-INPUT_SIZE='480,480'
-SNAPSHOT_FROM='./models/LIP_CIHP_deeplab_v3/LIP_epoch_4.pth'
-DATASET='val'
+CS_PATH='/export/home/zm/dataset/LIP/'
+BS=32
+GPU_IDS='0'
+INPUT_SIZE='384,384'
+SNAPSHOT_FROM='./models/snapshots1/LIP_epoch_145_54.47.pth'
+DATASET='test'
 NUM_CLASSES=20
-OUTPUTS='./outputs/CIHP_LIP_deeplabv3/'
+OUTPUTS='./outputs/'
 
-python evaluate.py --data-dir ${CS_PATH} \
+python test.py --data-dir ${CS_PATH} \
        --gpu ${GPU_IDS} \
        --batch-size ${BS} \
        --input-size ${INPUT_SIZE}\

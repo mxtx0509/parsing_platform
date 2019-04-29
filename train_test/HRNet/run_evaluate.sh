@@ -2,9 +2,9 @@
 
 CS_PATH='/home/liuwu1/notespace/dataset/LIP/'
 BS=32
-GPU_IDS='1'
+GPU_IDS='3'
 INPUT_SIZE='480,480'
-SNAPSHOT_FROM='./models/CIHP_LIP_HRNetv2_bn/LIP_epoch_29.pth'
+SNAPSHOT_FROM='./models/CIHP_LIP_ohem/LIP_epoch_6.pth'
 DATASET='val'
 NUM_CLASSES=20
 OUTPUTS='./outputs/CIHP_LIP_HRNetv2_bn29/'

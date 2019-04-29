@@ -31,4 +31,27 @@ class CriterionAll(nn.Module):
           
         loss = self.parsing_loss(preds, target) 
         return loss
-    
+  
+class CriterionAll2(nn.Module):
+    '''
+    DSN : We need to consider two supervision for the model.
+    '''
+    def __init__(self, ignore_index=255, use_weight=True, reduce=True):
+        super(CriterionAll2, self).__init__()
+        self.ignore_index = ignore_index
+        self.criterion = torch.nn.CrossEntropyLoss(ignore_index=ignore_index, reduce=reduce)
+        print (self.criterion)
+        if not reduce:
+            print("disabled the reduce.")
+
+    def forward(self, preds, target):
+        h, w = target.size(1), target.size(2)
+
+        scale_pred = F.upsample(input=preds[0], size=(h, w), mode='bilinear', align_corners=True)
+        loss1 = self.criterion(scale_pred, target)
+
+        scale_pred = F.upsample(input=preds[1], size=(h, w), mode='bilinear', align_corners=True)
+        loss2 = self.criterion(scale_pred, target)
+
+        return loss1 + loss2
+        

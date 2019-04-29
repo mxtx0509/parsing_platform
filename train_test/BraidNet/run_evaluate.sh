@@ -1,13 +1,13 @@
 #!/bin/bash
 
-CS_PATH='/home/liuwu1/notespace/dataset/LIP/'
-BS=16
-GPU_IDS='3'
+CS_PATH='/export/home/zm/dataset/LIP/'
+BS=32
+GPU_IDS='1'
 INPUT_SIZE='480,480'
-SNAPSHOT_FROM='./models/LIP_CIHP_deeplab_v3/LIP_epoch_4.pth'
+SNAPSHOT_FROM='./models/HRNetv2_synbn/LIP_epoch_149.pth'
 DATASET='val'
 NUM_CLASSES=20
-OUTPUTS='./outputs/CIHP_LIP_deeplabv3/'
+OUTPUTS='./outputs/HRNetv2_synbn/'
 
 python evaluate.py --data-dir ${CS_PATH} \
        --gpu ${GPU_IDS} \
