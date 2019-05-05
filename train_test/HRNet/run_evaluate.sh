@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CS_PATH='/home/liuwu1/notespace/dataset/LIP/'
+CS_PATH='/home/liuwu1/notespace/dataset/CIHP/'
 BS=32
 GPU_IDS='3'
 INPUT_SIZE='480,480'
