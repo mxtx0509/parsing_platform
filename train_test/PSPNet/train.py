@@ -90,9 +90,13 @@ def get_arguments():
                         help="Where restore model parameters from.")
     parser.add_argument("--save-num-images", type=int, default=SAVE_NUM_IMAGES,
                         help="How many images to save.")
+    parser.add_argument("--save_step", type=int, default=2,
+                        help="How many images to save.")
     parser.add_argument("--snapshot-dir", type=str, default=SNAPSHOT_DIR,
                         help="Where to save snapshots of the model.")
     parser.add_argument("--gpu", type=str, default='None',
+                        help="choose gpu device.")
+    parser.add_argument("--list_path", type=str, default='None',
                         help="choose gpu device.")
     parser.add_argument("--start-epoch", type=int, default=0,
                         help="choose the number of recurrence.")
@@ -174,7 +178,7 @@ def main():
 
     saved_state_dict = torch.load(args.restore_from)
 
-    if args.start_epoch >0:
+    if args.start_epoch >=0:
         model = DataParallelModel(deeplab)
         model.load_state_dict(saved_state_dict['state_dict'])
     else:
@@ -206,7 +210,7 @@ def main():
         normalize,
     ])
 
-    trainloader = data.DataLoader(LIPDataSet(args.data_dir, args.dataset, crop_size=input_size, transform=transform),
+    trainloader = data.DataLoader(LIPDataSet(args.data_dir, args.dataset, crop_size=input_size, transform=transform,list_path=args.list_path),
                                   batch_size=args.batch_size * len(gpus), shuffle=True, num_workers=4,
                                   pin_memory=True)
 
@@ -232,7 +236,7 @@ def main():
         momentum=args.momentum,
         weight_decay=args.weight_decay
     )
-    if args.start_epoch > 0:
+    if args.start_epoch >= 0:
         optimizer.load_state_dict(saved_state_dict['optimizer'])
         print ('========Load Optimizer',args.restore_from)
 
@@ -281,7 +285,7 @@ def main():
                 # writer.add_image('PredEdges/', pred_edge, i_iter)
 
             print('epoch = {}, iter = {} of {} completed,lr={}, loss = {}'.format(epoch, i_iter, total_iters,lr, loss.data.cpu().numpy())) 
-        if epoch%2 == 0 or epoch==args.epochs:
+        if epoch%args.save_step == 0 or epoch==args.epochs:
             time.sleep(10)
             save_checkpoint(model,epoch,optimizer)
 

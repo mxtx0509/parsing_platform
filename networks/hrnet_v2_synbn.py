@@ -293,8 +293,8 @@ class HighResolutionNet(nn.Module):
             num_channels[i] * block.expansion for i in range(len(num_channels))]
         self.transition3 = self._make_transition_layer(
             pre_stage_channels, num_channels)
-        for p in self.parameters():
-            p.requires_grad = False
+        # for p in self.parameters():
+            # p.requires_grad = False
         self.stage4, pre_stage_channels = self._make_stage(
             self.stage4_cfg, num_channels, multi_scale_output=True)
         

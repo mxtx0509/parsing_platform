@@ -4,18 +4,20 @@ uname -a
 #env
 date
 
-CS_PATH='/home/liuwu1/notespace/dataset/'
+CS_PATH='/home/liuwu1/notespace/dataset/CIHP/train'
 LR=1e-2
 WD=5e-4
 BS=8
 GPU_IDS=0,1,2,3
-RESTORE_FROM='../../init_models/resnet101_deeplabv3_pspnet.pth'
+RESTORE_FROM='./models/LIP_CIHP_deeplab_v3/LIP_epoch_29.pth'
 INPUT_SIZE='480,480'
-SNAPSHOT_DIR='./models/LIP_CIHP_deeplab_v3/'
+SNAPSHOT_DIR='./models/CIHP_GT_deeplabv3/'
 DATASET='train'
 NUM_CLASSES=20
 EPOCHS=30
 START=0
+LIST_PATH='/home/liuwu1/notespace/dataset/CIHP/CIHP_repeat_train_id_label_GT.txt'
+SAVE_STEP=2
 
 if [[ ! -e ${SNAPSHOT_DIR} ]]; then
     mkdir -p  ${SNAPSHOT_DIR}
@@ -34,4 +36,6 @@ python -u train.py --data-dir ${CS_PATH} \
        --dataset ${DATASET}\
        --num-classes ${NUM_CLASSES} \
        --epochs ${EPOCHS} \
-       --start-epoch ${START}
+       --start-epoch ${START}\
+       --list_path ${LIST_PATH}\
+       --save_step ${SAVE_STEP}

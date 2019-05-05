@@ -3,11 +3,11 @@ import numpy as np
 import torch
 import time
 import sys
-sys.path.append('/export/home/zm/test/cvpr_workshop/parsing_pytorch/')  
+sys.path.append('../../')  
 from PIL import Image as PILImage
 torch.multiprocessing.set_start_method("spawn", force=True)
 from torch.utils import data
-from networks.hrnet_v2_synbn import get_cls_net
+from networks.hrnet_braid import get_cls_net
 from dataset.datasets_origin import LIPDataSet
 import os
 import torch.nn.functional as F
@@ -120,7 +120,7 @@ def valid(model, valloader, input_size, num_samples, gpus):
                     parsing_preds[idx:idx + nums, :, :] = np.asarray(parsing, dtype=np.uint8)
                     idx += nums
             else:
-                parsing = outputs
+                parsing = outputs[1]
                 parsing = interp(parsing)
                 parsing = F.softmax(parsing,dim=1).data.cpu().numpy()
                 parsing = parsing.transpose(0, 2, 3, 1)  # NCHW NHWC
@@ -156,7 +156,7 @@ def main():
     
     input_size = (h, w)
 
-    model = get_cls_net(config=config, is_train=False)
+    model = get_cls_net(config=config, num_classes=20, is_train=False)
 
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
@@ -193,7 +193,7 @@ def main():
     parsing_preds, scales, centers,time_list= valid(model, valloader, input_size, num_samples, len(gpus))
     mIoU = compute_mean_ioU(parsing_preds, scales, centers, args.num_classes, args.data_dir, input_size)
     
-    write_results(parsing_preds, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
+    # write_results(parsing_preds, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
     # write_logits(parsing_logits, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
     
     

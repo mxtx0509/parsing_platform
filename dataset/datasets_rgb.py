@@ -11,7 +11,7 @@ from utils.transforms import get_affine_transform
 
 class LIPDataSet(data.Dataset):
     def __init__(self, root, dataset, crop_size=[473, 473], scale_factor=0.25,
-                 rotation_factor=30, ignore_label=255, transform=None):
+                 rotation_factor=30, ignore_label=255, transform=None,list_path='/home/liuwu1/notespace/dataset/LIP/LIP_CIHP_train_path_new.txt' ):
         """
         :rtype:
         """
@@ -26,13 +26,14 @@ class LIPDataSet(data.Dataset):
         self.transform = transform
         self.dataset = dataset
 
-        list_path = os.path.join('/home/liuwu1/notespace/dataset/LIP/LIP_CIHP_train_path_new.txt')
+        # list_path = os.path.join('/home/liuwu1/notespace/dataset/LIP/LIP_CIHP_train_path_new.txt')
+        print ('ListPath is',list_path)
 
         self.im_list = [i_id.strip() for i_id in open(list_path)]
         num_gpu = 4
         length = int(len(self.im_list)/num_gpu)*num_gpu
         self.im_list = self.im_list[0:length]
-        print ('Len is:', len(self.im_list),'    GPU Num is:',num_gpu )
+        print ('Len is:', len(self.im_list),'    GPU Num is:',num_gpu)
         self.number_samples = len(self.im_list)
 
     def __len__(self):
@@ -60,7 +61,7 @@ class LIPDataSet(data.Dataset):
         image_path, label_path = im_name.split(' ')
         im_path = os.path.join(self.root, image_path )
         parsing_anno_path = os.path.join(self.root,  label_path)
-        # print (im_path,parsing_anno_path)
+        #print (im_path,parsing_anno_path)
 
         im = cv2.imread(im_path, cv2.IMREAD_COLOR)
         im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
