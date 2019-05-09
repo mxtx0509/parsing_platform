@@ -178,6 +178,28 @@ def compute_mean_ioU_file(preds_dir, num_classes, datadir, dataset='val'):
     name_value.append(('Mean IU', mean_IoU))
     name_value = OrderedDict(name_value)
     return name_value
+def write_logits(preds, scales, centers, datadir, dataset, result_dir, input_size=[473, 473]):
+    result_root =  os.path.join(result_dir,dataset+'_logits/')
+    if not os.path.exists(result_root):
+        os.makedirs(result_root)
+        print ('Make Dir: ',result_root)
+
+    id_path = os.path.join(datadir, dataset + '_id.txt')
+    reader = open(id_path)
+    data_list = reader.readlines()[0:len(preds)]
+    count = 0
+    for im_name, pred_out, s, c in zip(data_list, preds, scales, centers):
+        if count%100==0:
+            print ('Have Save %d .npy'%count)
+        im_name = im_name.strip()
+        image_path = os.path.join(datadir, dataset + '_images', im_name + '.jpg')
+        image = cv2.imread(image_path)
+        h, w ,_ = image.shape
+        pred = transform_parsing(pred_out, c, s, w, h, input_size)
+
+        save_path = os.path.join(result_root, im_name+'.npy')
+        np.save(save_path,pred)
+        count = count + 1
 
 def write_results(preds, scales, centers, datadir, dataset, result_dir, input_size=[473, 473]):
     if not os.path.exists(result_dir):
@@ -200,8 +222,11 @@ def write_results(preds, scales, centers, datadir, dataset, result_dir, input_si
     id_path = os.path.join(datadir, dataset + '_id.txt')
     reader = open(id_path)
     data_list = reader.readlines()[0:len(preds)]
+    count = 0
     
     for im_name, pred_out, s, c in zip(data_list, preds, scales, centers):
+        if count%100==0:
+            print ('Have Save %d .npy'%count)
         im_name = im_name.strip()
         image_path = os.path.join(datadir, dataset + '_images', im_name + '.jpg')
         image = cv2.imread(image_path)
@@ -216,6 +241,8 @@ def write_results(preds, scales, centers, datadir, dataset, result_dir, input_si
         output_im = PILImage.fromarray(np.asarray(pred, dtype=np.uint8))
         output_im.putpalette(palette)
         output_im.save(save_path)
+        
+        count = count + 1
         
         # save_path = os.path.join('./outputs/val_label_vis/', im_name+'.png')
         # output_im = PILImage.fromarray(np.asarray(gt, dtype=np.uint8))
