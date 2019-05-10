@@ -190,7 +190,7 @@ def write_logits(preds, scales, centers, datadir, dataset, result_dir, input_siz
     count = 0
     for im_name, pred_out, s, c in zip(data_list, preds, scales, centers):
         if count%100==0:
-            print ('Have Save %d .npy'%count)
+            print ('Have Save Logits %d'%count)
         im_name = im_name.strip()
         image_path = os.path.join(datadir, dataset + '_images', im_name + '.jpg')
         image = cv2.imread(image_path)
@@ -226,7 +226,7 @@ def write_results(preds, scales, centers, datadir, dataset, result_dir, input_si
     
     for im_name, pred_out, s, c in zip(data_list, preds, scales, centers):
         if count%100==0:
-            print ('Have Save %d .npy'%count)
+            print ('Have Save Result: %d'%count)
         im_name = im_name.strip()
         image_path = os.path.join(datadir, dataset + '_images', im_name + '.jpg')
         image = cv2.imread(image_path)

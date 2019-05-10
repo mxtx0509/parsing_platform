@@ -7,9 +7,9 @@ INPUT_SIZE='480,480'
 SNAPSHOT_FROM='./models/LIP_CIHP_psp/LIP_epoch_29.pth'
 DATASET='val'
 NUM_CLASSES=20
-OUTPUTS='./outputs/CIHP_LIP_HRNetv2_bn29/'
+OUTPUTS='./outputs/LIP_CIHP_psp/'
 
-python evaluate.py --data-dir ${CS_PATH} \
+python eval_logits.py --data-dir ${CS_PATH} \
        --gpu ${GPU_IDS} \
        --batch-size ${BS} \
        --input-size ${INPUT_SIZE}\
