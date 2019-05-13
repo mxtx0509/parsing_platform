@@ -9,7 +9,7 @@ import pdb
 import numpy as np
 from torch.autograd import Variable
 import functools
-
+from .asp_oc_block import ASP_OC_Module
 from libs import InPlaceABN, InPlaceABNSync
 BatchNorm2d = functools.partial(InPlaceABNSync, activation='none') 
 
@@ -17,7 +17,7 @@ def conv3x3(in_planes, out_planes, stride=1):
     "3x3 convolution with padding"
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
                      padding=1, bias=False)
-
+affine_par=True
 
 class Bottleneck(nn.Module):
     expansion = 4
@@ -67,6 +67,7 @@ class ResNet(nn.Module):
     def __init__(self, block, layers, num_classes):
         self.inplanes = 128
         super(ResNet, self).__init__()
+        print ('Model: ASP_OCNet')
         self.conv1 = conv3x3(3, 64, stride=2)
         self.bn1 = BatchNorm2d(64)
         self.relu1 = nn.ReLU(inplace=False)
