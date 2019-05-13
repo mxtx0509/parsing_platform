@@ -77,9 +77,10 @@ def compute_mean_ioU(m,val_id,root1,root2,new_root):
 
 def main():
     n_classes = 20
-    root1 = '/home/liuwu1/notespace/cvpr_workshop/parsing_pytorch/fuse_output/psp+deeplab_logits/'
-    root2 = '/home/liuwu1/notespace/cvpr_workshop/parsing_pytorch/train_test/HRNet/outputs/CIHP_LIP_HRNet_ohem/val_logits/'
-    new_root = '../fuse_output/psp+deeplab+hrnet_logits/'
+    #root1 = '/home/liuwu1/notespace/cvpr_workshop/parsing_pytorch/fuse_output/psp+deeplab_logits/'
+    root1 = '/home/liuwu1/notespace/cvpr_workshop/parsing_pytorch/outputs/psp+deeplab_logits/'
+    root2 = '/home/liuwu1/notespace/cvpr_workshop/parsing_pytorch/outputs/braid+hrnet_logits/'
+    new_root = '../outputs/braid+hrnet+deeplab+psp/'
 
     reader = open('val_id.txt')
     lines = reader.readlines()
@@ -87,7 +88,7 @@ def main():
     for line in lines:
         line = line.strip()
         val_id.append(line)
-    # compute_mean_ioU(5,val_id,root1,root2,new_root)
+    # compute_mean_ioU(3,val_id[:100],root1,root2,new_root)
     # print (aaa)
     pool = multiprocessing.Pool() 
     for m in range(11):

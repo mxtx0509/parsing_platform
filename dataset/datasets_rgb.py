@@ -61,7 +61,7 @@ class LIPDataSet(data.Dataset):
         image_path, label_path = im_name.split(' ')
         im_path = os.path.join(self.root, image_path )
         parsing_anno_path = os.path.join(self.root,  label_path)
-        #print (im_path,parsing_anno_path)
+        # print (im_path,parsing_anno_path)
 
         im = cv2.imread(im_path, cv2.IMREAD_COLOR)
         im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
