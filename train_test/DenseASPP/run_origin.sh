@@ -5,7 +5,7 @@ uname -a
 date
 
 CS_PATH='/home/liuwu1/notespace/dataset'
-LR=4e-2
+LR=1e-2
 WD=5e-4
 BS=4
 GPU_IDS=0,1,2,3
