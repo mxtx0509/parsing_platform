@@ -13,7 +13,7 @@ import functools
 import sys, os
 
 from libs import InPlaceABN, InPlaceABNSync
-import CrissCrossAttention
+from .functions import CrissCrossAttention, ca_weight, ca_map
 
 
 BatchNorm2d = functools.partial(InPlaceABNSync, activation='none')
@@ -128,6 +128,7 @@ class ResNet(nn.Module):
     def __init__(self, block, layers, num_classes):
         self.inplanes = 128
         super(ResNet, self).__init__()
+        print ('Model: CCNet')
         self.conv1 = conv3x3(3, 64, stride=2)
         self.bn1 = BatchNorm2d(64)
         self.relu1 = nn.ReLU(inplace=False)
