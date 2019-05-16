@@ -7,7 +7,7 @@ sys.path.append('../../')
 from PIL import Image as PILImage
 torch.multiprocessing.set_start_method("spawn", force=True)
 from torch.utils import data
-from networks.deeplabv3 import Res_Deeplab
+from networks.cc_attention.ccnet import Res_Deeplab
 from dataset.datasets_origin import LIPDataSet
 import os
 import torch.nn.functional as F

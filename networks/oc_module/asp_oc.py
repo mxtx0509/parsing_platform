@@ -126,7 +126,7 @@ class ResNet(nn.Module):
         x = self.layer4(x)
         x = self.context(x)
         x = self.cls(x)
-        return [x_dsn, x] 
+        return [x,x_dsn] 
 
 
 def get_resnet101_asp_oc_dsn(num_classes=21):

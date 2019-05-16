@@ -9,7 +9,7 @@ DATASET='val'
 NUM_CLASSES=20
 OUTPUTS='./outputs/CIHP_LIP_deeplabv3/'
 
-python eval_logits.py --data-dir ${CS_PATH} \
+python evaluate.py --data-dir ${CS_PATH} \
        --gpu ${GPU_IDS} \
        --batch-size ${BS} \
        --input-size ${INPUT_SIZE}\

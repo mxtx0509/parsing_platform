@@ -9,13 +9,13 @@ LR=1e-2
 WD=5e-4
 BS=8
 GPU_IDS=0,1,2,3
-RESTORE_FROM='../../models/resnet101-imagenet.pth'
+RESTORE_FROM='./models/LIP_CIHP_OCNet/LIP_epoch_10.pth'
 INPUT_SIZE='480,480'
 SNAPSHOT_DIR='./models/LIP_CIHP_OCNet/'
 DATASET='train'
 NUM_CLASSES=20
 EPOCHS=30
-START=0
+START=6
 LIST_PATH='/home/liuwu1/notespace/dataset/LIP/LIP_CIHP_train_path_new.txt'
 SAVE_STEP=2
 

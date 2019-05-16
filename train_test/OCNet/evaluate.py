@@ -7,7 +7,7 @@ sys.path.append('../../')
 from PIL import Image as PILImage
 torch.multiprocessing.set_start_method("spawn", force=True)
 from torch.utils import data
-from networks.deeplabv3 import Res_Deeplab
+from networks.oc_module.asp_oc import get_resnet101_asp_oc_dsn
 from dataset.datasets_origin import LIPDataSet
 import os
 import torch.nn.functional as F
@@ -152,7 +152,7 @@ def main():
     
     input_size = (h, w)
 
-    model = Res_Deeplab(num_classes=args.num_classes)
+    model = get_resnet101_asp_oc_dsn(num_classes=args.num_classes)
 
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
