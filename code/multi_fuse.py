@@ -46,7 +46,7 @@ def compute_mean_ioU(m,val_id,root1,root2,new_root):
         logit2 = np.load(os.path.join(root2,im_name+'.npy'))
         logit = a*logit1 + b*logit2
         
-        # np.save(os.path.join(new_root, im_name+'.npy'),logit)
+        np.save(os.path.join(new_root, im_name+'.npy'),logit)
         
         pred = np.argmax(logit, axis=2)
         pred = np.asarray(pred, dtype=np.int32)
@@ -80,7 +80,7 @@ def main():
     #root1 = '/home/liuwu1/notespace/cvpr_workshop/parsing_pytorch/fuse_output/psp+deeplab_logits/'
     root1 = '/home/liuwu1/notespace/cvpr_workshop/parsing_pytorch/outputs/psp+deeplab_logits/'
     root2 = '/home/liuwu1/notespace/cvpr_workshop/parsing_pytorch/outputs/braid+hrnet_logits/'
-    new_root = '../outputs/braid+hrnet+deeplab+psp/'
+    new_root = '../outputs/braid+hrnet+deeplab+psp_logits/'
 
     reader = open('val_id.txt')
     lines = reader.readlines()
@@ -88,8 +88,8 @@ def main():
     for line in lines:
         line = line.strip()
         val_id.append(line)
-    # compute_mean_ioU(3,val_id[:100],root1,root2,new_root)
-    # print (aaa)
+    compute_mean_ioU(5,val_id,root1,root2,new_root)
+    print (aaa)
     pool = multiprocessing.Pool() 
     for m in range(11):
         pool.apply_async(compute_mean_ioU, (m,val_id,root1,root2,new_root))
