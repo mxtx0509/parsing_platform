@@ -7,7 +7,7 @@ sys.path.append('../../')
 from PIL import Image as PILImage
 torch.multiprocessing.set_start_method("spawn", force=True)
 from torch.utils import data
-from networks.DenseASPP import DenseASPP
+from networks.hrnet_v2_synbn import get_cls_net
 from dataset.datasets_origin import LIPDataSet
 import os
 import torch.nn.functional as F
@@ -15,6 +15,8 @@ import torchvision.transforms as transforms
 from utils.miou import compute_mean_ioU,write_results
 from copy import deepcopy
 
+from config import config
+from config import update_config
 
 DATA_DIRECTORY = '/ssd1/liuting14/Dataset/LIP/'
 DATA_LIST_PATH = './dataset/list/lip/valList.txt'
@@ -143,7 +145,7 @@ def valid(model, valloader, input_size, num_samples, gpus):
 def main():
     """Create the model and start the evaluation process."""
     args = get_arguments()
-
+    update_config(config, args)
     print (args)
     os.environ["CUDA_VISIBLE_DEVICES"]=args.gpu
     gpus = [int(i) for i in args.gpu.split(',')]
@@ -152,7 +154,7 @@ def main():
     
     input_size = (h, w)
 
-    model = DenseASPP(n_class=args.num_classes)
+    model = get_cls_net(config=config, is_train=False)
 
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])

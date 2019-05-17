@@ -7,14 +7,16 @@ sys.path.append('../../')
 from PIL import Image as PILImage
 torch.multiprocessing.set_start_method("spawn", force=True)
 from torch.utils import data
-from networks.DenseASPP import DenseASPP
+from networks.hrnet_v2_synbn import get_cls_net
 from dataset.datasets_origin import LIPDataSet
 import os
 import torch.nn.functional as F
 import torchvision.transforms as transforms
-from utils.miou import compute_mean_ioU,write_results
+from utils.miou import compute_mean_ioU,write_results,write_logits
 from copy import deepcopy
 
+from config import config
+from config import update_config
 
 DATA_DIRECTORY = '/ssd1/liuting14/Dataset/LIP/'
 DATA_LIST_PATH = './dataset/list/lip/valList.txt'
@@ -83,7 +85,8 @@ def valid(model, valloader, input_size, num_samples, gpus):
     time_list = []
     palette = get_lip_palette()  
     parsing_preds = np.zeros((num_samples, input_size[0], input_size[1]), dtype=np.uint8)
-
+    parsing_logits = []
+    
     scales = np.zeros((num_samples, 2), dtype=np.float32)
     centers = np.zeros((num_samples, 2), dtype=np.int32)
 
@@ -122,6 +125,9 @@ def valid(model, valloader, input_size, num_samples, gpus):
                 parsing = interp(parsing)
                 parsing = F.softmax(parsing,dim=1).data.cpu().numpy()
                 parsing = parsing.transpose(0, 2, 3, 1)  # NCHW NHWC
+                for i in range(num_images):
+                    parsing_logits.append(parsing[i])
+                # parsing_logits[idx:idx + num_images, :, :, :] = parsing
 
                 
                 parsing = np.asarray(np.argmax(parsing, axis=3), dtype=np.uint8)
@@ -135,15 +141,15 @@ def valid(model, valloader, input_size, num_samples, gpus):
             # break
 
     parsing_preds = parsing_preds[:num_samples, :, :]
+    #parsing_logits = parsing_logits[:num_samples, :, :,:]
 
 
-
-    return parsing_preds, scales, centers, time_list
+    return parsing_preds, scales, centers, time_list,parsing_logits
 
 def main():
     """Create the model and start the evaluation process."""
     args = get_arguments()
-
+    update_config(config, args)
     print (args)
     os.environ["CUDA_VISIBLE_DEVICES"]=args.gpu
     gpus = [int(i) for i in args.gpu.split(',')]
@@ -152,7 +158,7 @@ def main():
     
     input_size = (h, w)
 
-    model = DenseASPP(n_class=args.num_classes)
+    model = get_cls_net(config=config, is_train=False)
 
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
@@ -186,14 +192,17 @@ def main():
     model.eval()
     model.cuda()
 
-    parsing_preds, scales, centers,time_list= valid(model, valloader, input_size, num_samples, len(gpus))
+    parsing_preds, scales, centers,time_list,parsing_logits= valid(model, valloader, input_size, num_samples, len(gpus))
+    print (len(parsing_logits))
     mIoU = compute_mean_ioU(parsing_preds, scales, centers, args.num_classes, args.data_dir, input_size)
-    # write_results(parsing_preds, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
-    # write_logits(parsing_logits, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
-    
+    print(mIoU)
+    print ('Write Results!')
+    write_results(parsing_preds, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
+    print ('Write Logits!')
+    write_logits(parsing_logits, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
     
 
-    print(mIoU)
+    
     print('total time is ',sum(time_list))
     print('avg time is ',sum(time_list)/len(time_list))
 
