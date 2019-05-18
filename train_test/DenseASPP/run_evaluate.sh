@@ -3,8 +3,8 @@
 CS_PATH='/home/liuwu1/notespace/dataset/LIP/'
 BS=32
 GPU_IDS='1'
-INPUT_SIZE='384,384'
-SNAPSHOT_FROM='./models/LIP_CIHP_DenseASPP/LIP_epoch_22.pth'
+INPUT_SIZE='480,480'
+SNAPSHOT_FROM='./models/LIP_CIHP_DenseASPP/LIP_epoch_28.pth'
 DATASET='val'
 NUM_CLASSES=20
 OUTPUTS='./outputs/val_vis/'
