@@ -29,8 +29,9 @@ class LIPDataSet(data.Dataset):
         list_path = os.path.join(self.root, self.dataset + '_id.txt')
 
         self.im_list = [i_id.strip() for i_id in open(list_path)]
-        #self.im_list = self.im_list[0:100]
+        #self.im_list = self.im_list[:1000]
         self.number_samples = len(self.im_list)
+        print ('Len Test Images: ',len(self.im_list))
 
     def __len__(self):
         return self.number_samples
@@ -59,6 +60,7 @@ class LIPDataSet(data.Dataset):
         parsing_anno_path = os.path.join(self.root, self.dataset + '_labels', im_name + '.png')
 
         im = cv2.imread(im_path, cv2.IMREAD_COLOR)
+        im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
         h, w, _ = im.shape
         parsing_anno = np.zeros((h, w), dtype=np.long)
 

@@ -183,13 +183,13 @@ def main():
  
 
     deeplab = get_cls_net(config=config, is_train=True)
-    model = DataParallelModel(deeplab)
+    # model = DataParallelModel(deeplab)
     # dump_input = torch.rand((args.batch_size, 3, input_size[0], input_size[1]))
     # writer.add_graph(deeplab.cuda(), dump_input.cuda(), verbose=False)
     
     saved_state_dict = torch.load(args.restore_from)
 
-    if args.start_epoch >=0:
+    if args.start_epoch >0:
         model = DataParallelModel(deeplab)
         model.load_state_dict(saved_state_dict['state_dict'])
     else:

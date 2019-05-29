@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings("ignore")
 import argparse
 import numpy as np
 import torch
@@ -13,7 +15,7 @@ import os
 import torch.nn.functional as F
 import torchvision.transforms as transforms
 from utils.miou import compute_mean_ioU,write_results
-from utils.encoding import DataParallelModel, DataParallelCriterion
+from utils.encoding import DataParallelModel, DataParallelCriterion 
 from copy import deepcopy
 
 from config import config
@@ -89,10 +91,14 @@ def valid(model, valloader, input_size, num_samples, gpus):
 
     scales = np.zeros((num_samples, 2), dtype=np.float32)
     centers = np.zeros((num_samples, 2), dtype=np.int32)
-
+    m=0.4
+    n=1-m
+    print ('====',m,n)
     idx = 0
-    interp = torch.nn.Upsample(size=(input_size[0], input_size[1]), mode='bilinear', align_corners=True)
+    print ('0.75!!!')
     interp_init1 = torch.nn.Upsample(size=(int(input_size[0]*1.5), int(input_size[1]*1.5)), mode='bilinear', align_corners=True)
+    interp_init2 = torch.nn.Upsample(size=(int(input_size[0]*0.75), int(input_size[1]*0.75)), mode='bilinear', align_corners=True)
+    interp = torch.nn.Upsample(size=(input_size[0], input_size[1]), mode='bilinear', align_corners=True)
     with torch.no_grad():
         for index, batch in enumerate(valloader):
             image, meta = batch
@@ -108,28 +114,32 @@ def valid(model, valloader, input_size, num_samples, gpus):
 
             input = image.cuda()
             s_time = time.time()
-            input = interp_init1(input)
-            if index % 4 == 0:
-                print('%d  processd' % (index * num_images),input.size())
+            input1 = interp_init1(input)
+            input2 = interp_init2(input)
             outputs = model(input)
+            outputs1 = model(input1)
+            outputs2 = model(input2)
+            if index % 10 == 0:
+                print('%d  processd' % (index * num_images), input.size(),input1.size(),input2.size())
+            #print (outputs[0].size(),outputs1[0].size(),outputs2[0].size())
             during_time = time.time() - s_time
-            time_list.append(during_time)
+            time_list.append(during_time) 
             if gpus > 1:
-                for output in outputs:
-                    parsing = output
-                    nums = len(parsing)
-                    parsing = interp(parsing).data.cpu().numpy()
+                #for output in outputs:
+                for output,output1,output2 in zip(outputs,outputs1,outputs2):
+                # for output,output1 in zip(outputs,outputs1):
+                    nums = len(output)
+                    parsing1= 0.6*interp(output1).data.cpu().numpy() + 0.4*interp(output2).data.cpu().numpy()
+                    parsing = m*interp(output).data.cpu().numpy() + n*parsing1
                     parsing = parsing.transpose(0, 2, 3, 1)  # NCHW NHWC
-                    parsing = np.argmax(parsing, axis=3)
-                    parsing_preds[idx:idx + nums, :, :] = np.asarray(parsing, dtype=np.uint8)
+                    parsing = np.asarray(np.argmax(parsing, axis=3), dtype=np.uint8)
+                    parsing_preds[idx:idx + nums, :, :] = parsing
                     idx += nums
             else:
                 parsing = outputs
                 parsing = interp(parsing)
                 parsing = F.softmax(parsing,dim=1).data.cpu().numpy()
                 parsing = parsing.transpose(0, 2, 3, 1)  # NCHW NHWC
-
-                
                 parsing = np.asarray(np.argmax(parsing, axis=3), dtype=np.uint8)
                 parsing_preds[idx:idx + num_images, :, :] = parsing
 
@@ -151,8 +161,9 @@ def main():
     args = get_arguments()
     update_config(config, args)
     print (args)
-    os.environ["CUDA_VISIBLE_DEVICES"]=args.gpu
     gpus = [int(i) for i in args.gpu.split(',')]
+    if not args.gpu == 'None':
+        os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
     h, w = map(int, args.input_size.split(','))
     

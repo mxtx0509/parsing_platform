@@ -29,7 +29,7 @@ class LIPDataSet(data.Dataset):
         list_path = os.path.join(self.root, self.dataset + '_id.txt')
 
         self.im_list = [i_id.strip() for i_id in open(list_path)]
-        self.im_list = self.im_list[:1000]
+        #self.im_list = self.im_list[:1000]
         self.number_samples = len(self.im_list)
         print ('Len Test Images: ',len(self.im_list))
 
