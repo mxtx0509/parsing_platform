@@ -53,7 +53,7 @@ def get_confusion_matrix(gt_label, pred_label, num_classes):
                 confusion_matrix[i_label, i_pred_label] = label_count[cur_index]
 
     return confusion_matrix
-root = './braid+hrnet+deeplab+psp_logits'
+root = '/home/liuwu1/notespace/cvpr_workshop/parsing_pytorch/train_test/HRNet_origin/outputs/CIHP_LIP_HRNet_ohem/val_logits'
 npylist=os.listdir(root)
 confusion_matrix = np.zeros((20, 20))
 palette = get_lip_palette() 
@@ -68,10 +68,10 @@ for i, npy in enumerate(npylist):
     logit = np.load(os.path.join(root,npy))
     pred = np.argmax(logit, axis=2)
     pred = np.asarray(pred, dtype=np.int32)
-    cv2.imwrite(os.path.join('./braid_hrnet_psp_deeplab_result/result/', im_name+'.png'), pred)
-    output_im = PILImage.fromarray(np.asarray(pred, dtype=np.uint8))
-    output_im.putpalette(palette)
-    output_im.save(os.path.join('./braid_hrnet_psp_deeplab_result/vis/', im_name+'.png'))
+#     cv2.imwrite(os.path.join('./braid_hrnet_psp_deeplab_result/result/', im_name+'.png'), pred)
+#     output_im = PILImage.fromarray(np.asarray(pred, dtype=np.uint8))
+#     output_im.putpalette(palette)
+#     output_im.save(os.path.join('./braid_hrnet_psp_deeplab_result/vis/', im_name+'.png'))
     pred = pred[ignore_index]
 
     confusion_matrix += get_confusion_matrix(gt, pred, 20)

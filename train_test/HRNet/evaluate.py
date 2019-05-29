@@ -13,6 +13,7 @@ import os
 import torch.nn.functional as F
 import torchvision.transforms as transforms
 from utils.miou import compute_mean_ioU,write_results
+from utils.encoding import DataParallelModel, DataParallelCriterion
 from copy import deepcopy
 
 from config import config
@@ -41,6 +42,8 @@ def get_arguments():
     parser.add_argument("--data-dir", type=str, default=DATA_DIRECTORY,
                         help="Path to the directory containing the PASCAL VOC dataset.")
     parser.add_argument("--snapshot_dir", type=str, default="",
+                        help="")
+    parser.add_argument("--list_path", type=str, default="",
                         help="")
     parser.add_argument("--dataset", type=str, default='val',
                         help="Path to the file listing the images in the dataset.")
@@ -164,7 +167,7 @@ def main():
         normalize,
     ])
 
-    lip_dataset = LIPDataSet(args.data_dir, 'val', crop_size=input_size, transform=transform)
+    lip_dataset = LIPDataSet(args.data_dir, 'val',args.list_path, crop_size=input_size, transform=transform)
     num_samples = len(lip_dataset)
 
     valloader = data.DataLoader(lip_dataset, batch_size=args.batch_size * len(gpus),
@@ -184,12 +187,13 @@ def main():
             state_dict[key] = deepcopy(state_dict_old[key])
 
     model.load_state_dict(state_dict)
+    model = DataParallelModel(model)
 
     model.eval()
     model.cuda()
 
     parsing_preds, scales, centers,time_list= valid(model, valloader, input_size, num_samples, len(gpus))
-    mIoU = compute_mean_ioU(parsing_preds, scales, centers, args.num_classes, args.data_dir, input_size)
+    mIoU = compute_mean_ioU(parsing_preds, scales, centers, args.num_classes, args.data_dir, input_size,args.dataset,args.list_path)
     # write_results(parsing_preds, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
     # write_logits(parsing_logits, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
     

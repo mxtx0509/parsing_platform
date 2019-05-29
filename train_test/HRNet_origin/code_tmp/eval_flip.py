@@ -9,17 +9,18 @@ sys.path.append('../../')
 from PIL import Image as PILImage
 torch.multiprocessing.set_start_method("spawn", force=True)
 from torch.utils import data
-from networks.hrnet_braid import get_cls_net
+from networks.seg_hrnet import get_seg_model
 from dataset.datasets_origin import LIPDataSet
 import os
 import torch.nn.functional as F
 import torchvision.transforms as transforms
-from utils.miou import compute_mean_ioU,write_results,write_logits
-from utils.encoding import DataParallelModel, DataParallelCriterion 
+from utils.miou import compute_mean_ioU,write_results
+from utils.encoding import DataParallelModel, DataParallelCriterion
 from copy import deepcopy
-
+import torchvision
 from config import config
 from config import update_config
+import cv2
 
 DATA_DIRECTORY = '/ssd1/liuting14/Dataset/LIP/'
 DATA_LIST_PATH = './dataset/list/lip/valList.txt'
@@ -27,7 +28,6 @@ IGNORE_LABEL = 255
 NUM_CLASSES = 20
 SNAPSHOT_DIR = './snapshots/'
 INPUT_SIZE = (473,473)
-
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
@@ -62,6 +62,7 @@ def get_arguments():
                         help="choose gpu device.")
     parser.add_argument("--input-size", type=str, default=INPUT_SIZE,
                         help="Comma-separated string with height and width of images.")
+
     return parser.parse_args()
 def get_lip_palette():  
     palette = [ 0,0,0,
@@ -85,23 +86,34 @@ def get_lip_palette():
           255,255,0,
           255,170,0] 
     return palette 
+
+def process_flip(output_flip):
+    flip_trans=torchvision.transforms.RandomHorizontalFlip(p=1) 
+    output = torch.zeros((output_flip.shape[0:]))
+    for c in range(14):
+        output[:,:, :, c] = output_flip[:,:, :, c]
+    output[:,:, :, 14] = output_flip[:,:, :,15]
+    output[:,:, :, 15] = output_flip[:,:, :, 14]
+    output[:,:, :, 16] = output_flip[:,:, :, 17]
+    output[:,:, :, 17] = output_flip[:,:, :,16]
+    output[:,:, :,18] = output_flip[:,:, :, 19]
+    output[:,:, :,19] = output_flip[:,:, :, 18]
+    output = torch.flip(output,[2])
+    return output
 def valid(model, valloader, input_size, num_samples, gpus):
     model.eval()
     time_list = []
     palette = get_lip_palette()  
     parsing_preds = np.zeros((num_samples, input_size[0], input_size[1]), dtype=np.uint8)
-    parsing_logits = []
-    
+
     scales = np.zeros((num_samples, 2), dtype=np.float32)
     centers = np.zeros((num_samples, 2), dtype=np.int32)
 
-    m=0.7
-    n=1-m
-    print ('====',m,n)
     idx = 0
-    print ('1.5!!!')
-    interp_init1 = torch.nn.Upsample(size=(int(input_size[0]*1.5), int(input_size[1]*1.5)), mode='bilinear', align_corners=True)
+    m=0.3; n=1-m
+    print ('m=',m,'  n=',n)
     interp = torch.nn.Upsample(size=(input_size[0], input_size[1]), mode='bilinear', align_corners=True)
+
     with torch.no_grad():
         for index, batch in enumerate(valloader):
             image, meta = batch
@@ -111,36 +123,39 @@ def valid(model, valloader, input_size, num_samples, gpus):
             scales[idx:idx + num_images, :] = s[:, :]
             centers[idx:idx + num_images, :] = c[:, :]
             s_time = time.time()
-        
+
             input = image.cuda()
-            input1 = interp_init1(input)
-        
+            input_flip = torch.flip(input,[2])
+#             x= input_flip.data.cpu().numpy()
+#             y= input.data.cpu().numpy()
+#             cv2.imwrite('1.jpg',x[0])
+#             cv2.imwrite('2.jpg',y[0])
+#             print (azaaa)
+            if index % 4 == 0:
+                print('%d  processd' % (index * num_images),input.size())
             outputs = model(input)
-            outputs1 = model(input1)
-            if index % 10 == 0:
-                print('%d  processd' % (index * num_images),input.size(),input1.size())
+            outputs_flip = model(input_flip)
             during_time = time.time() - s_time
             time_list.append(during_time)
             if gpus > 1:
-                for output,output1 in zip(outputs,outputs1):
+                for output,output_flip in zip(outputs,outputs_flip):
                     nums = len(output)
-                    parsing = m*interp(output) + n*interp(output1)
-                    parsing = F.softmax(parsing,dim=1).data.cpu().numpy()
+                    output_flip = process_flip(output_flip)
+                    parsing = m*interp(output).data.cpu() + n*interp(output_flip)
+                    parsing = F.softmax(parsing,dim=1).numpy()
                     parsing = parsing.transpose(0, 2, 3, 1)  # NCHW NHWC
-                    for i in range(nums):
-                        parsing_logits.append(parsing[i])
-                    parsing = np.asarray(np.argmax(parsing, axis=3), dtype=np.uint8)
-                    parsing_preds[idx:idx + nums, :, :] = parsing
+                    parsing = np.argmax(parsing, axis=3)
+                    parsing_preds[idx:idx + nums, :, :] = np.asarray(parsing, dtype=np.uint8)
                     idx += nums
             else:
-                output, output1 = outputs,outputs1
-                parsing = m*interp(output) + n*interp(output1)
-                parsing = F.softmax(parsing,dim=1).data.cpu().numpy()
+                output = outputs
+                output_flip = process_flip(outputs_flip)
+                parsing = m*interp(output).data.cpu() + n*interp(output_flip)
+                parsing = F.softmax(parsing,dim=1).numpy()
                 parsing = parsing.transpose(0, 2, 3, 1)  # NCHW NHWC
-                for i in range(num_images):
-                    parsing_logits.append(parsing[i])
                 parsing = np.asarray(np.argmax(parsing, axis=3), dtype=np.uint8)
                 parsing_preds[idx:idx + num_images, :, :] = parsing
+
                 idx += num_images
                 # for i in range(num_images):
                     # output_im = PILImage.fromarray(parsing[i,:,:]) 
@@ -149,18 +164,18 @@ def valid(model, valloader, input_size, num_samples, gpus):
             # break
 
     parsing_preds = parsing_preds[:num_samples, :, :]
-    #parsing_logits = parsing_logits[:num_samples, :, :,:]
 
 
-    return parsing_preds, scales, centers, time_list,parsing_logits
+
+    return parsing_preds, scales, centers, time_list
 
 def main():
+    """Create the model and start the evaluation process."""
     args = get_arguments()
     update_config(config, args)
     print (args)
+    os.environ["CUDA_VISIBLE_DEVICES"]=args.gpu
     gpus = [int(i) for i in args.gpu.split(',')]
-    if not args.gpu == 'None':
-        os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
     h, w = map(int, args.input_size.split(','))
     
@@ -201,17 +216,14 @@ def main():
     model.eval()
     model.cuda()
 
-    parsing_preds, scales, centers,time_list,parsing_logits= valid(model, valloader, input_size, num_samples, len(gpus))
-    print (len(parsing_logits))
+    parsing_preds, scales, centers,time_list= valid(model, valloader, input_size, num_samples, len(gpus))
     mIoU = compute_mean_ioU(parsing_preds, scales, centers, args.num_classes, args.data_dir, input_size,'val',args.list_path)
-    print(mIoU)
-#     print ('Write Results!')
-#     write_results(parsing_preds, scales, centers, args.data_dir, 'val', args.save_dir, input_size,args.list_path)
-    print ('Write Logits!')
-    write_logits(parsing_logits, scales, centers, args.data_dir, 'val', args.save_dir, input_size,args.list_path)
+    # write_results(parsing_preds, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
+    # write_logits(parsing_logits, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
+    
     
 
-    
+    print(mIoU)
     print('total time is ',sum(time_list))
     print('avg time is ',sum(time_list)/len(time_list))
 

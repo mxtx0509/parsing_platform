@@ -77,7 +77,7 @@ def get_confusion_matrix(gt_label, pred_label, num_classes):
     return confusion_matrix
 
 
-def compute_mean_ioU(preds, scales, centers, num_classes, datadir, input_size=[473, 473], dataset='val'):
+def compute_mean_ioU(preds, scales, centers, num_classes, datadir, input_size=[473, 473], dataset='val',list_path=''):
     # val_file = os.path.join(datadir, 'annotations', dataset + '.json')
     # anno_file = open(val_file)
     # anno = json.load(anno_file)
@@ -85,7 +85,7 @@ def compute_mean_ioU(preds, scales, centers, num_classes, datadir, input_size=[4
     # val_id = []
     # for i, a in enumerate(anno):
         # val_id.append(a['im_name'][:-4])
-    reader = open('/home/liuwu1/notespace/dataset/LIP/val_id.txt')
+    reader = open(list_path)
     val_id = reader.readlines()[0:len(preds)]
 
     confusion_matrix = np.zeros((num_classes, num_classes))
@@ -178,13 +178,13 @@ def compute_mean_ioU_file(preds_dir, num_classes, datadir, dataset='val'):
     name_value.append(('Mean IU', mean_IoU))
     name_value = OrderedDict(name_value)
     return name_value
-def write_logits(preds, scales, centers, datadir, dataset, result_dir, input_size=[473, 473]):
+def write_logits(preds, scales, centers, datadir, dataset, result_dir, input_size=[473, 473],list_path=''):
     result_root =  os.path.join(result_dir,dataset+'_logits/')
     if not os.path.exists(result_root):
         os.makedirs(result_root)
         print ('Make Dir: ',result_root)
 
-    id_path = os.path.join(datadir, dataset + '_id.txt')
+    id_path = os.path.join(list_path)
     reader = open(id_path)
     data_list = reader.readlines()[0:len(preds)]
     count = 0
@@ -201,7 +201,7 @@ def write_logits(preds, scales, centers, datadir, dataset, result_dir, input_siz
         np.save(save_path,pred)
         count = count + 1
 
-def write_results(preds, scales, centers, datadir, dataset, result_dir, input_size=[473, 473]):
+def write_results(preds, scales, centers, datadir, dataset, result_dir, input_size=[473, 473],list_path=''):
     if not os.path.exists(result_dir):
         os.makedirs(result_dir)
         print ('Make Dir: ',result_dir)
@@ -215,11 +215,8 @@ def write_results(preds, scales, centers, datadir, dataset, result_dir, input_si
         print ('Make Dir: ',vis_root)
     palette = get_lip_palette() 
 
-    # json_file = os.path.join(datadir, 'annotations', dataset + '.json')
-    # with open(json_file) as data_file:
-        # data_list = json.load(data_file)
-        # data_list = data_list['root']
-    id_path = os.path.join(datadir, dataset + '_id.txt')
+
+    id_path = os.path.join(list_path)
     reader = open(id_path)
     data_list = reader.readlines()[0:len(preds)]
     count = 0
@@ -243,15 +240,7 @@ def write_results(preds, scales, centers, datadir, dataset, result_dir, input_si
         output_im.save(save_path)
         
         count = count + 1
-        
-        # save_path = os.path.join('./outputs/val_label_vis/', im_name+'.png')
-        # output_im = PILImage.fromarray(np.asarray(gt, dtype=np.uint8))
-        # output_im.putpalette(palette)
-        # output_im.save(save_path)
-        
-        # combine = (gt==pred).astype(np.uint8)
-        # combine = combine * 255
-        # cv2.imwrite(os.path.join('./outputs/combine/',im_name+'.png'),combine)
+
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.

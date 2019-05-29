@@ -14,7 +14,7 @@ from dataset.datasets_origin import LIPDataSet
 import os
 import torch.nn.functional as F
 import torchvision.transforms as transforms
-from utils.miou import compute_mean_ioU,write_results,write_logits
+from utils.miou import compute_mean_ioU,write_results
 from utils.encoding import DataParallelModel, DataParallelCriterion 
 from copy import deepcopy
 
@@ -27,7 +27,6 @@ IGNORE_LABEL = 255
 NUM_CLASSES = 20
 SNAPSHOT_DIR = './snapshots/'
 INPUT_SIZE = (473,473)
-
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
@@ -62,6 +61,7 @@ def get_arguments():
                         help="choose gpu device.")
     parser.add_argument("--input-size", type=str, default=INPUT_SIZE,
                         help="Comma-separated string with height and width of images.")
+
     return parser.parse_args()
 def get_lip_palette():  
     palette = [ 0,0,0,
@@ -90,11 +90,9 @@ def valid(model, valloader, input_size, num_samples, gpus):
     time_list = []
     palette = get_lip_palette()  
     parsing_preds = np.zeros((num_samples, input_size[0], input_size[1]), dtype=np.uint8)
-    parsing_logits = []
-    
+
     scales = np.zeros((num_samples, 2), dtype=np.float32)
     centers = np.zeros((num_samples, 2), dtype=np.int32)
-
     m=0.7
     n=1-m
     print ('====',m,n)
@@ -127,8 +125,6 @@ def valid(model, valloader, input_size, num_samples, gpus):
                     parsing = m*interp(output) + n*interp(output1)
                     parsing = F.softmax(parsing,dim=1).data.cpu().numpy()
                     parsing = parsing.transpose(0, 2, 3, 1)  # NCHW NHWC
-                    for i in range(nums):
-                        parsing_logits.append(parsing[i])
                     parsing = np.asarray(np.argmax(parsing, axis=3), dtype=np.uint8)
                     parsing_preds[idx:idx + nums, :, :] = parsing
                     idx += nums
@@ -137,8 +133,6 @@ def valid(model, valloader, input_size, num_samples, gpus):
                 parsing = m*interp(output) + n*interp(output1)
                 parsing = F.softmax(parsing,dim=1).data.cpu().numpy()
                 parsing = parsing.transpose(0, 2, 3, 1)  # NCHW NHWC
-                for i in range(num_images):
-                    parsing_logits.append(parsing[i])
                 parsing = np.asarray(np.argmax(parsing, axis=3), dtype=np.uint8)
                 parsing_preds[idx:idx + num_images, :, :] = parsing
                 idx += num_images
@@ -149,12 +143,13 @@ def valid(model, valloader, input_size, num_samples, gpus):
             # break
 
     parsing_preds = parsing_preds[:num_samples, :, :]
-    #parsing_logits = parsing_logits[:num_samples, :, :,:]
 
 
-    return parsing_preds, scales, centers, time_list,parsing_logits
+
+    return parsing_preds, scales, centers, time_list
 
 def main():
+    """Create the model and start the evaluation process."""
     args = get_arguments()
     update_config(config, args)
     print (args)
@@ -201,17 +196,14 @@ def main():
     model.eval()
     model.cuda()
 
-    parsing_preds, scales, centers,time_list,parsing_logits= valid(model, valloader, input_size, num_samples, len(gpus))
-    print (len(parsing_logits))
-    mIoU = compute_mean_ioU(parsing_preds, scales, centers, args.num_classes, args.data_dir, input_size,'val',args.list_path)
-    print(mIoU)
-#     print ('Write Results!')
-#     write_results(parsing_preds, scales, centers, args.data_dir, 'val', args.save_dir, input_size,args.list_path)
-    print ('Write Logits!')
-    write_logits(parsing_logits, scales, centers, args.data_dir, 'val', args.save_dir, input_size,args.list_path)
+    parsing_preds, scales, centers,time_list= valid(model, valloader, input_size, num_samples, len(gpus))
+    mIoU = compute_mean_ioU(parsing_preds, scales, centers, args.num_classes, args.data_dir, input_size,args.dataset,args.list_path)
+    # write_results(parsing_preds, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
+    # write_logits(parsing_logits, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
+    
     
 
-    
+    print(mIoU)
     print('total time is ',sum(time_list))
     print('avg time is ',sum(time_list)/len(time_list))
 

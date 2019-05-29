@@ -53,6 +53,8 @@ def get_arguments():
                         help="Where restore model parameters from.")
     parser.add_argument("--gpu", type=str, default='0',
                         help="choose gpu device.")
+    parser.add_argument("--list_path", type=str, default='',
+                        help="choose gpu device.")
     parser.add_argument("--save-dir", type=str, default='outputs',
                         help="choose gpu device.")
     parser.add_argument("--input-size", type=str, default=INPUT_SIZE,
@@ -168,7 +170,7 @@ def main():
         normalize,
     ])
 
-    lip_dataset = LIPDataSet(args.data_dir, 'val', crop_size=input_size, transform=transform)
+    lip_dataset = LIPDataSet(args.data_dir, 'val', args.list_path,crop_size=input_size, transform=transform)
     num_samples = len(lip_dataset)
 
     valloader = data.DataLoader(lip_dataset, batch_size=args.batch_size * len(gpus),
@@ -194,7 +196,7 @@ def main():
     model.cuda()
 
     parsing_preds, scales, centers,time_list= valid(model, valloader, input_size, num_samples, len(gpus))
-    mIoU = compute_mean_ioU(parsing_preds, scales, centers, args.num_classes, args.data_dir, input_size)
+    mIoU = compute_mean_ioU(parsing_preds, scales, centers, args.num_classes, args.data_dir, input_size,'val',args.list_path)
     # write_results(parsing_preds, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
     # write_logits(parsing_logits, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
     

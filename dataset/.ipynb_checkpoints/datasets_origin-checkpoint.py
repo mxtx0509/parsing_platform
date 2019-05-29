@@ -10,7 +10,7 @@ from utils.transforms import get_affine_transform
 
 
 class LIPDataSet(data.Dataset):
-    def __init__(self, root, dataset, crop_size=[473, 473], scale_factor=0.25,
+    def __init__(self, root, dataset, list_path, crop_size=[473, 473], scale_factor=0.25,
                  rotation_factor=30, ignore_label=255, transform=None):
         """
         :rtype:
@@ -26,12 +26,10 @@ class LIPDataSet(data.Dataset):
         self.transform = transform
         self.dataset = dataset
 
-        list_path = os.path.join(self.root, self.dataset + '_id.txt')
-
         self.im_list = [i_id.strip() for i_id in open(list_path)]
-        #self.im_list = self.im_list[:1000]
+        self.im_list = self.im_list[:400]
         self.number_samples = len(self.im_list)
-        print ('Len Test Images: ',len(self.im_list))
+        print ('Len Test Images: ',len(self.im_list),list_path)
 
     def __len__(self):
         return self.number_samples

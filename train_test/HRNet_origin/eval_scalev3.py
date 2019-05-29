@@ -53,6 +53,8 @@ def get_arguments():
                         help="Number of classes to predict (including background).")
     parser.add_argument("--restore-from", type=str,
                         help="Where restore model parameters from.")
+    parser.add_argument("--list_path", type=str,
+                        help="Where restore model parameters from.")
     parser.add_argument("--gpu", type=str, default='0',
                         help="choose gpu device.")
     parser.add_argument("--save-dir", type=str, default='outputs',
@@ -97,51 +99,42 @@ def valid(model, valloader, input_size, num_samples, gpus):
     idx = 0
     print ('1.5!!!')
     interp_init1 = torch.nn.Upsample(size=(int(input_size[0]*1.5), int(input_size[1]*1.5)), mode='bilinear', align_corners=True)
-    interp_init2 = torch.nn.Upsample(size=(int(input_size[0]*0.75), int(input_size[1]*0.75)), mode='bilinear', align_corners=True)
     interp = torch.nn.Upsample(size=(input_size[0], input_size[1]), mode='bilinear', align_corners=True)
     with torch.no_grad():
         for index, batch in enumerate(valloader):
             image, meta = batch
-            #print (image.size())
             num_images = image.size(0)
-            
-            # if index ==100:
-                # break
             c = meta['center'].numpy()
             s = meta['scale'].numpy()
             scales[idx:idx + num_images, :] = s[:, :]
             centers[idx:idx + num_images, :] = c[:, :]
-
-            input = image.cuda()
             s_time = time.time()
+        
+            input = image.cuda()
             input1 = interp_init1(input)
-            #input2 = interp_init2(input)
+        
             outputs = model(input)
             outputs1 = model(input1)
             if index % 10 == 0:
                 print('%d  processd' % (index * num_images),input.size(),input1.size())
-            #outputs2 = model(input2)
-            #print (outputs[0].size(),outputs1[0].size(),outputs2[0].size())
             during_time = time.time() - s_time
             time_list.append(during_time)
             if gpus > 1:
-                #for output in outputs:
-                #for output,output1,output2 in zip(outputs,outputs1,outputs2):
                 for output,output1 in zip(outputs,outputs1):
                     nums = len(output)
-                    parsing = m*interp(output).data.cpu().numpy() + n*interp(output1).data.cpu().numpy()#+ interp(output2).data.cpu().numpy())
+                    parsing = m*interp(output) + n*interp(output1)
+                    parsing = F.softmax(parsing,dim=1).data.cpu().numpy()
                     parsing = parsing.transpose(0, 2, 3, 1)  # NCHW NHWC
                     parsing = np.asarray(np.argmax(parsing, axis=3), dtype=np.uint8)
                     parsing_preds[idx:idx + nums, :, :] = parsing
                     idx += nums
             else:
-                parsing = outputs
-                parsing = interp(parsing)
+                output, output1 = outputs,outputs1
+                parsing = m*interp(output) + n*interp(output1)
                 parsing = F.softmax(parsing,dim=1).data.cpu().numpy()
                 parsing = parsing.transpose(0, 2, 3, 1)  # NCHW NHWC
                 parsing = np.asarray(np.argmax(parsing, axis=3), dtype=np.uint8)
                 parsing_preds[idx:idx + num_images, :, :] = parsing
-
                 idx += num_images
                 # for i in range(num_images):
                     # output_im = PILImage.fromarray(parsing[i,:,:]) 
@@ -178,7 +171,7 @@ def main():
         normalize,
     ])
 
-    lip_dataset = LIPDataSet(args.data_dir, 'val', crop_size=input_size, transform=transform)
+    lip_dataset = LIPDataSet(args.data_dir, 'val',args.list_path, crop_size=input_size, transform=transform)
     num_samples = len(lip_dataset)
 
     valloader = data.DataLoader(lip_dataset, batch_size=args.batch_size * len(gpus),
@@ -204,7 +197,7 @@ def main():
     model.cuda()
 
     parsing_preds, scales, centers,time_list= valid(model, valloader, input_size, num_samples, len(gpus))
-    mIoU = compute_mean_ioU(parsing_preds, scales, centers, args.num_classes, args.data_dir, input_size)
+    mIoU = compute_mean_ioU(parsing_preds, scales, centers, args.num_classes, args.data_dir, input_size,args.dataset,args.list_path)
     # write_results(parsing_preds, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
     # write_logits(parsing_logits, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
     
