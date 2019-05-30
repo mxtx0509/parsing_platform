@@ -9,6 +9,7 @@ reated by .ignore support plugin (hsz.mobi)
 *.png
 *.npy
 *.json
+core*
 # Jupyter Notebook
 .ipynb_checkpoints
 
