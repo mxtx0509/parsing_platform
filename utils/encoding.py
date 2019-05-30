@@ -101,6 +101,42 @@ class DataParallelModel(DataParallel):
         execute_replication_callbacks(modules)
         return modules
 
+class DataParallelModel_zm(DataParallel):
+    """Implements data parallelism at the module level.
+
+    This container parallelizes the application of the given module by
+    splitting the input across the specified devices by chunking in the
+    batch dimension.
+    In the forward pass, the module is replicated on each device,
+    and each replica handles a portion of the input. During the backwards pass, gradients from each replica are summed into the original module.
+    Note that the outputs are not gathered, please use compatible
+    :class:`encoding.parallel.DataParallelCriterion`.
+
+    The batch size should be larger than the number of GPUs used. It should
+    also be an integer multiple of the number of GPUs so that each chunk is
+    the same size (so that each GPU processes the same number of samples).
+
+    Args:
+        module: module to be parallelized
+        device_ids: CUDA devices (default: all devices)
+
+    Reference:
+        Hang Zhang, Kristin Dana, Jianping Shi, Zhongyue Zhang, Xiaogang Wang, Ambrish Tyagi,
+        Amit Agrawal. “Context Encoding for Semantic Segmentation.
+        *The IEEE Conference on Computer Vision and Pattern Recognition (CVPR) 2018*
+
+    Example::
+
+        >>> net = encoding.nn.DataParallelModel(model, device_ids=[0, 1, 2])
+        >>> y = net(x)
+    """
+#     def gather(self, outputs, output_device):
+#         return outputs
+
+    def replicate(self, module, device_ids):
+        modules = super(DataParallelModel_zm, self).replicate(module, device_ids)
+        execute_replication_callbacks(modules)
+        return modules
 
 class DataParallelCriterion(DataParallel):
     """

@@ -11,6 +11,7 @@ import torch.backends.cudnn as cudnn
 import os
 import os.path as osp
 import sys
+import torch.nn.functional as F
 sys.path.append('../../')  
 #from networks.pose_hrnet import get_pose_net
 from networks.seg_hrnet import get_seg_model
@@ -20,8 +21,10 @@ import timeit
 from tensorboardX import SummaryWriter
 from utils.utils import decode_parsing, inv_preprocess
 from utils.criterion import CriterionAll
+from utils.lovasz_losses import LovaszSoftmax
+import utils.lovasz_losses as L
 from utils.loss import OhemCrossEntropy2d
-from utils.encoding import DataParallelModel, DataParallelCriterion 
+from utils.encoding import DataParallelModel, DataParallelCriterion,DataParallelModel_zm 
 from utils.miou import compute_mean_ioU
 from config import config
 from config import update_config
@@ -183,13 +186,13 @@ def main():
  
 
     deeplab = get_seg_model(cfg=config, num_classes=args.num_classes,is_train=True)
-    model = DataParallelModel(deeplab)
+    #model = DataParallelModel_zm(deeplab)
     # dump_input = torch.rand((args.batch_size, 3, input_size[0], input_size[1]))
     # writer.add_graph(deeplab.cuda(), dump_input.cuda(), verbose=False)
     
     saved_state_dict = torch.load(args.restore_from)
 
-    if args.start_epoch >0:
+    if args.start_epoch >=0:
         model = DataParallelModel(deeplab)
         model.load_state_dict(saved_state_dict['state_dict'])
     else:
@@ -209,7 +212,7 @@ def main():
     
     model.cuda()
 
-    criterion = CriterionAll()
+    criterion = LovaszSoftmax(input_size)
     criterion = DataParallelCriterion(criterion)
     criterion.cuda()
 
@@ -249,7 +252,7 @@ def main():
         weight_decay=args.weight_decay
     )
     
-    if args.start_epoch >0:
+    if args.start_epoch >=0:
         optimizer.load_state_dict(saved_state_dict['optimizer'])
         print ('========Load Optimizer',args.restore_from)
     
@@ -264,8 +267,8 @@ def main():
             images, labels, _ = batch
             labels = labels.long().cuda(non_blocking=True)
             preds = model(images)
-
             loss = criterion(preds,labels)
+            #loss = L.lovasz_softmax(preds, labels, input_size, ignore=255)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()

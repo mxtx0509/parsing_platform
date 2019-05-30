@@ -18,7 +18,7 @@ import torchvision.transforms as transforms
 import timeit
 from tensorboardX import SummaryWriter
 from utils.utils import decode_parsing, inv_preprocess
-from utils.criterion2 import CriterionDSN
+from utils.lovasz_losses import LovaszSoftmaxDSN
 from utils.loss import OhemCrossEntropy2d
 from utils.encoding import DataParallelModel, DataParallelCriterion 
 from utils.miou import compute_mean_ioU
@@ -198,7 +198,7 @@ def main():
 
     model.cuda()
 
-    criterion = CriterionDSN()
+    criterion = LovaszSoftmaxDSN(input_size)
     criterion = DataParallelCriterion(criterion)
     criterion.cuda()
 

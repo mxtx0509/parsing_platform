@@ -1,21 +1,25 @@
+import warnings
+warnings.filterwarnings("ignore")
 import argparse
 import numpy as np
 import torch
 import time
 import sys
-sys.path.append('../../')  
+sys.path.append('train_test/HRNet/') 
 from PIL import Image as PILImage
 torch.multiprocessing.set_start_method("spawn", force=True)
 from torch.utils import data
-from networks.hrnet_braid import get_cls_net
+from networks.seg_hrnet import get_seg_model
 from dataset.datasets_origin import LIPDataSet
 import os
 import torch.nn.functional as F
 import torchvision.transforms as transforms
-from utils.miou import compute_mean_ioU,write_results
-from utils.encoding import DataParallelModel, DataParallelCriterion
+from utils.miou import compute_mean_ioU,write_results,write_logits
+from utils.encoding import DataParallelModel, DataParallelCriterion 
 from copy import deepcopy
 
+from config import config
+from config import update_config
 
 DATA_DIRECTORY = '/ssd1/liuting14/Dataset/LIP/'
 DATA_LIST_PATH = './dataset/list/lip/valList.txt'
@@ -24,6 +28,7 @@ NUM_CLASSES = 20
 SNAPSHOT_DIR = './snapshots/'
 INPUT_SIZE = (473,473)
 
+
 def get_arguments():
     """Parse all the arguments provided from the CLI.
     
@@ -31,7 +36,7 @@ def get_arguments():
       A list of parsed arguments.
     """
     parser = argparse.ArgumentParser(description="CE2P Network")
-    parser.add_argument('--cfg',default='seg_hrnet_w48_473x473_sgd_lr7e-3_wd5e-4_bs_40_epoch150.yaml',
+    parser.add_argument('--cfg',default='train_test/HRNet/cls_hrnet_w48_sgd_lr5e-2_wd1e-4_bs32_x100.yaml',
                         help='experiment configure file name',
                         #required=True,
                         type=str)
@@ -41,6 +46,10 @@ def get_arguments():
                         help="Path to the directory containing the PASCAL VOC dataset.")
     parser.add_argument("--snapshot_dir", type=str, default="",
                         help="")
+    parser.add_argument("--model", type=str, default='deeplab',
+                        help="")
+    parser.add_argument("--m_rate", type=float, default=0.7,
+                        help="Number of classes to predict (including background).")
     parser.add_argument("--dataset", type=str, default='val',
                         help="Path to the file listing the images in the dataset.")
     parser.add_argument("--ignore-label", type=int, default=IGNORE_LABEL,
@@ -49,9 +58,9 @@ def get_arguments():
                         help="Number of classes to predict (including background).")
     parser.add_argument("--restore-from", type=str,
                         help="Where restore model parameters from.")
+    parser.add_argument("--list_path", type=str,
+                        help="Where restore model parameters from.")
     parser.add_argument("--gpu", type=str, default='0',
-                        help="choose gpu device.")
-    parser.add_argument("--list_path", type=str, default='',
                         help="choose gpu device.")
     parser.add_argument("--save-dir", type=str, default='outputs',
                         help="choose gpu device.")
@@ -81,58 +90,85 @@ def get_lip_palette():
           255,255,0,
           255,170,0] 
     return palette 
-def valid(model, valloader, input_size, num_samples, gpus):
+def process_output(args,output):
+    if args.model=='braidnet':
+        return output[1]
+    elif args.model=='ccnet':
+        return output
+    elif args.model=='ce2p':
+        return output
+    elif args.model=='danet':
+        return output[0]
+    elif args.model=='deeplab':
+        return output[0]
+    elif args.model=='denseaspp':
+        return output
+    elif args.model=='hrnet':
+        return output
+    elif args.model=='hrnet_origin':
+        return output
+    elif args.model=='ocnet':
+        return output[0]
+    elif args.model=='pspnet':
+        return output[0]
+def valid(args,model, valloader, input_size, num_samples, gpus):
     model.eval()
     time_list = []
     palette = get_lip_palette()  
     parsing_preds = np.zeros((num_samples, input_size[0], input_size[1]), dtype=np.uint8)
-
+    parsing_logits = []
+    
     scales = np.zeros((num_samples, 2), dtype=np.float32)
     centers = np.zeros((num_samples, 2), dtype=np.int32)
 
+    m=args.m_rate
+    n=1-m
+    print ('====',m,n)
     idx = 0
-    interp = torch.nn.Upsample(size=(input_size[0], input_size[1]), mode='bilinear', align_corners=True)
+    print ('1.5!!!')
     interp_init1 = torch.nn.Upsample(size=(int(input_size[0]*1.5), int(input_size[1]*1.5)), mode='bilinear', align_corners=True)
+    interp = torch.nn.Upsample(size=(input_size[0], input_size[1]), mode='bilinear', align_corners=True)
     with torch.no_grad():
         for index, batch in enumerate(valloader):
             image, meta = batch
-            #print (image.size())
             num_images = image.size(0)
-            
-            # if index ==100:
-                # break
             c = meta['center'].numpy()
             s = meta['scale'].numpy()
             scales[idx:idx + num_images, :] = s[:, :]
             centers[idx:idx + num_images, :] = c[:, :]
-
-            input = image.cuda()
             s_time = time.time()
-            input = interp_init1(input)
-            if index % 4 == 0:
-                print('%d  processd' % (index * num_images),input.size())
+        
+            input = image.cuda()
+            input1 = interp_init1(input)
+        
             outputs = model(input)
+            outputs1 = model(input1)
+            if index % 10 == 0:
+                print('%d  processd' % (index * num_images),input.size(),input1.size())
             during_time = time.time() - s_time
             time_list.append(during_time)
             if gpus > 1:
-                for output in outputs:
-                    parsing = output
-                    nums = len(parsing)
-                    parsing = interp(parsing).data.cpu().numpy()
+                for output,output1 in zip(outputs,outputs1):
+                    output = process_output(args,output)
+                    output1 = process_output(args,output1)
+                    nums = len(output)
+                    parsing = m*interp(output) + n*interp(output1)
+                    parsing = F.softmax(parsing,dim=1).data.cpu().numpy()
                     parsing = parsing.transpose(0, 2, 3, 1)  # NCHW NHWC
-                    parsing = np.argmax(parsing, axis=3)
-                    parsing_preds[idx:idx + nums, :, :] = np.asarray(parsing, dtype=np.uint8)
+                    for i in range(nums):
+                        parsing_logits.append(parsing[i])
+                    parsing = np.asarray(np.argmax(parsing, axis=3), dtype=np.uint8)
+                    parsing_preds[idx:idx + nums, :, :] = parsing
                     idx += nums
             else:
-                parsing = outputs
-                parsing = interp(parsing)
+                output, output1 = process_output(args,outputs),process_output(args,outputs1)
+                parsing = m*interp(output) + n*interp(output1)
                 parsing = F.softmax(parsing,dim=1).data.cpu().numpy()
                 parsing = parsing.transpose(0, 2, 3, 1)  # NCHW NHWC
-
-                
+                for i in range(num_images):
+                    parsing_logits.append(parsing[i])
                 parsing = np.asarray(np.argmax(parsing, axis=3), dtype=np.uint8)
                 parsing_preds[idx:idx + num_images, :, :] = parsing
-
                 idx += num_images
                 # for i in range(num_images):
                     # output_im = PILImage.fromarray(parsing[i,:,:]) 
@@ -141,23 +177,55 @@ def valid(model, valloader, input_size, num_samples, gpus):
             # break
 
     parsing_preds = parsing_preds[:num_samples, :, :]
+    #parsing_logits = parsing_logits[:num_samples, :, :,:]
 
 
-
-    return parsing_preds, scales, centers, time_list
+    return parsing_preds, scales, centers, time_list,parsing_logits
 
 def main():
-    """Create the model and start the evaluation process."""
     args = get_arguments()
-
-    os.environ["CUDA_VISIBLE_DEVICES"]=args.gpu
+    update_config(config, args)
+    print (args)
     gpus = [int(i) for i in args.gpu.split(',')]
+    if not args.gpu == 'None':
+        os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
     h, w = map(int, args.input_size.split(','))
-    
     input_size = (h, w)
-
-    model = get_seg_model(cfg=config, num_classes=args.num_classes,is_train=False)
+    print ('Model:',args.model)
+    if args.model=='braidnet':
+        from networks.hrnet_braid import get_cls_net
+        model = get_cls_net(config=config, num_classes=args.num_classes, is_train=False)
+    elif args.model=='ccnet':
+        from networks.cc_attention.ccnet import CCNet_Deeplab
+        model = CCNet_Deeplab(num_classes=args.num_classes)
+    elif args.model=='ce2p':
+        from networks.CE2P import CE2P_Deeplab
+        model = CE2P_Deeplab(num_classes=args.num_classes)
+    elif args.model=='danet':
+        from networks.danet.danet import DANet
+        model = DANet(nclass=args.num_classes, backbone='resnet101' ,dilated=True, multi_grid=args.multi_grid,multi_dilation=args.multi_dilation)
+    elif args.model=='deeplab':
+        from networks.deeplabv3 import Res_Deeplab
+        model = Res_Deeplab(num_classes=args.num_classes)
+    elif args.model=='denseaspp':
+        from networks.DenseASPP import DenseASPP
+        model = DenseASPP(n_class=args.num_classes)
+    elif args.model=='hrnet':
+        from networks.hrnet_v2_synbn import get_cls_net
+        model = get_cls_net(config=config, is_train=False)
+    elif args.model=='hrnet_origin':
+        from networks.seg_hrnet import get_seg_model
+        model = get_seg_model(cfg=config, num_classes=args.num_classes,is_train=False)
+    elif args.model=='ocnet':
+        from networks.oc_module.asp_oc import get_resnet101_asp_oc_dsn
+        model = get_resnet101_asp_oc_dsn(num_classes=args.num_classes)
+    elif args.model=='pspnet':
+        from networks.pspnet import Res_Deeplab
+        model = Res_Deeplab(num_classes=args.num_classes)
+    else:
+        print ('args.model input wrong, please check')
+        return
 
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
@@ -167,7 +235,7 @@ def main():
         normalize,
     ])
 
-    lip_dataset = LIPDataSet(args.data_dir, 'val', args.list_path,crop_size=input_size, transform=transform)
+    lip_dataset = LIPDataSet(args.data_dir, 'val',args.list_path, crop_size=input_size, transform=transform)
     num_samples = len(lip_dataset)
 
     valloader = data.DataLoader(lip_dataset, batch_size=args.batch_size * len(gpus),
@@ -192,14 +260,17 @@ def main():
     model.eval()
     model.cuda()
 
-    parsing_preds, scales, centers,time_list= valid(model, valloader, input_size, num_samples, len(gpus))
+    parsing_preds, scales, centers,time_list,parsing_logits= valid(args,model, valloader, input_size, num_samples, len(gpus))
+    print (len(parsing_logits))
     mIoU = compute_mean_ioU(parsing_preds, scales, centers, args.num_classes, args.data_dir, input_size,'val',args.list_path)
-    # write_results(parsing_preds, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
-    # write_logits(parsing_logits, scales, centers, args.data_dir, 'val', args.save_dir, input_size=input_size)
-    
+    print(mIoU)
+#     print ('Write Results!')
+#     write_results(parsing_preds, scales, centers, args.data_dir, 'val', args.save_dir, input_size,args.list_path)
+    print ('Write Logits!')
+    write_logits(parsing_logits, scales, centers, args.data_dir, 'val', args.save_dir, input_size,args.list_path)
     
 
-    print(mIoU)
+    
     print('total time is ',sum(time_list))
     print('avg time is ',sum(time_list)/len(time_list))
 

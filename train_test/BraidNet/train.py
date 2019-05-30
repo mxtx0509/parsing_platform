@@ -79,7 +79,7 @@ def get_arguments():
     parser.add_argument("--input-size", type=str, default=INPUT_SIZE,
                         help="Comma-separated string with height and width of images.")
     parser.add_argument("--learning-rate", type=float, default=LEARNING_RATE,
-                        help="Base learning rate for training with polynomial decay.")
+                        help="Base learning rate for training with polynomial decay.") 
     parser.add_argument("--momentum", type=float, default=MOMENTUM,
                         help="Momentum component of the optimiser.")
     parser.add_argument("--num-classes", type=int, default=NUM_CLASSES,

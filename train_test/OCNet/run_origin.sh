@@ -5,17 +5,17 @@ uname -a
 date
 
 CS_PATH='/home/liuwu1/notespace/dataset'
-LR=1e-2
+LR=4e-3
 WD=5e-4
-BS=8
+BS=16
 GPU_IDS=0,1,2,3
-RESTORE_FROM='./models/LIP_CIHP_OCNet/LIP_epoch_10.pth'
+RESTORE_FROM='./models/LIP_CIHP_OCNet/LIP_epoch_29.pth'
 INPUT_SIZE='480,480'
-SNAPSHOT_DIR='./models/LIP_CIHP_OCNet/'
+SNAPSHOT_DIR='./models/LIP_OCNet_miou/'
 DATASET='train'
 NUM_CLASSES=20
-EPOCHS=30
-START=6
+EPOCHS=10
+START=0
 LIST_PATH='/home/liuwu1/notespace/dataset/LIP/LIP_CIHP_train_path_new.txt'
 SAVE_STEP=2
 
