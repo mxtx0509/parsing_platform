@@ -94,7 +94,7 @@ def valid(model, valloader, input_size, num_samples, gpus):
 
     idx = 0
     interp = torch.nn.Upsample(size=(input_size[0], input_size[1]), mode='bilinear', align_corners=True)
-    interp_init1 = torch.nn.Upsample(size=(int(input_size[0]*1.5), int(input_size[1]*1.5)), mode='bilinear', align_corners=True)
+
     with torch.no_grad():
         for index, batch in enumerate(valloader):
             image, meta = batch
@@ -110,7 +110,6 @@ def valid(model, valloader, input_size, num_samples, gpus):
 
             input = image.cuda()
             s_time = time.time()
-            input = interp_init1(input)
             if index % 4 == 0:
                 print('%d  processd' % (index * num_images),input.size())
             outputs = model(input)

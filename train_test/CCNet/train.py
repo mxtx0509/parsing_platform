@@ -12,7 +12,7 @@ import os
 import os.path as osp
 import sys
 sys.path.append('../../')  
-from networks.cc_attention.ccnet import Res_Deeplab
+from networks.cc_attention.ccnet import CCNet_Deeplab
 from dataset.datasets_rgb import LIPDataSet
 import torchvision.transforms as transforms
 import timeit
@@ -20,6 +20,7 @@ from tensorboardX import SummaryWriter
 from utils.utils import decode_parsing, inv_preprocess
 from utils.criterion2 import CriterionDSN
 from utils.loss import OhemCrossEntropy2d
+from utils.lovasz_losses import LovaszSoftmaxDSN
 from utils.encoding import DataParallelModel, DataParallelCriterion 
 from utils.miou import compute_mean_ioU
 
@@ -171,14 +172,14 @@ def main():
     torch.backends.cudnn.enabled = True
  
 
-    deeplab = Res_Deeplab(num_classes=args.num_classes)
+    deeplab = CCNet_Deeplab(num_classes=args.num_classes)
 
     # dump_input = torch.rand((args.batch_size, 3, input_size[0], input_size[1]))
     # writer.add_graph(deeplab.cuda(), dump_input.cuda(), verbose=False)
 
     saved_state_dict = torch.load(args.restore_from)
 
-    if args.start_epoch >0:
+    if args.start_epoch >=0:
         model = DataParallelModel(deeplab)
         model.load_state_dict(saved_state_dict['state_dict'])
     else:
@@ -198,9 +199,15 @@ def main():
 
     model.cuda()
 
-    criterion = CriterionDSN()
+    criterion = LovaszSoftmaxDSN(input_size)
+    print('LovaszSoftmaxDSN')
     criterion = DataParallelCriterion(criterion)
     criterion.cuda()
+    
+    criterion_softmax = CriterionDSN()
+    print('LOSS2: CriterionDSN')
+    criterion_softmax = DataParallelCriterion(criterion_softmax)
+    criterion_softmax.cuda()
 
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
@@ -236,7 +243,7 @@ def main():
         momentum=args.momentum,
         weight_decay=args.weight_decay
     )
-    if args.start_epoch > 0:
+    if args.start_epoch >= 0:
         optimizer.load_state_dict(saved_state_dict['optimizer'])
         print ('========Load Optimizer',args.restore_from)
 
@@ -252,7 +259,9 @@ def main():
             labels = labels.long().cuda(non_blocking=True)
             preds = model(images)
 
-            loss = criterion(preds,labels)
+            loss1 = criterion(preds,labels)
+            loss2 = criterion_softmax(preds,labels)
+            loss = loss1 + loss2
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -284,7 +293,7 @@ def main():
                 # writer.add_image('Edges/', edge, i_iter)
                 # writer.add_image('PredEdges/', pred_edge, i_iter)
 
-            print('epoch = {}, iter = {} of {} completed,lr={}, loss = {}'.format(epoch, i_iter, total_iters,lr, loss.data.cpu().numpy())) 
+            print('epoch = {}, iter = {} of {} completed,lr={:.8f}, loss = {:.4f}, IoU_loss = {:.4f}, BCE_loss = {:.4f}'.format(epoch, i_iter, total_iters,lr, loss.data.cpu().numpy(),loss1.data.cpu().numpy(),loss2.data.cpu().numpy())) 
         if epoch%args.save_step == 0 or epoch==args.epochs:
             time.sleep(10)
             save_checkpoint(model,epoch,optimizer)

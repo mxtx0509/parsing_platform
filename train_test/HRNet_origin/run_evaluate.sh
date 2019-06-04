@@ -1,16 +1,16 @@
 #!/bin/bash
 
 CS_PATH='/home/liuwu1/notespace/dataset/LIP/'
-BS=16
+BS=32
 GPU_IDS='0,1,2,3'
 INPUT_SIZE='480,480'
-SNAPSHOT_FROM='./models/LIP_HRNet_origin/LIP_epoch_29.pth'
+SNAPSHOT_FROM='models/LIP_HRNet_origin_iou/LIP_epoch_2.pth'
 DATASET='val'
 NUM_CLASSES=20
 OUTPUTS='./outputs/CIHP_LIP_HRNet_ohem/'
-LIST_PATH='/home/liuwu1/notespace/dataset/LIP/val_id_3000.txt'
+LIST_PATH='/home/liuwu1/notespace/dataset/LIP/val_id.txt'
 
-python eval_logits.py --data-dir ${CS_PATH} \
+python evaluate.py --data-dir ${CS_PATH} \
        --gpu ${GPU_IDS} \
        --batch-size ${BS} \
        --input-size ${INPUT_SIZE}\

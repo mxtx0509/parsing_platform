@@ -19,6 +19,7 @@ import timeit
 from tensorboardX import SummaryWriter
 from utils.utils import decode_parsing, inv_preprocess
 from utils.lovasz_losses import LovaszSoftmaxDSN
+from utils.criterion2 import CriterionDSN
 from utils.loss import OhemCrossEntropy2d
 from utils.encoding import DataParallelModel, DataParallelCriterion 
 from utils.miou import compute_mean_ioU
@@ -199,8 +200,14 @@ def main():
     model.cuda()
 
     criterion = LovaszSoftmaxDSN(input_size)
+    print('LOSS1: LovaszSoftmaxDSN')
     criterion = DataParallelCriterion(criterion)
     criterion.cuda()
+    
+    criterion_softmax = CriterionDSN()
+    print('LOSS2: CriterionDSN')
+    criterion_softmax = DataParallelCriterion(criterion_softmax)
+    criterion_softmax.cuda()
 
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
@@ -252,7 +259,9 @@ def main():
             labels = labels.long().cuda(non_blocking=True)
             preds = model(images)
 
-            loss = criterion(preds,labels)
+            loss1 = criterion(preds,labels)
+            loss2 = criterion_softmax(preds,labels)
+            loss = loss1 + loss2
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -284,7 +293,7 @@ def main():
                 # writer.add_image('Edges/', edge, i_iter)
                 # writer.add_image('PredEdges/', pred_edge, i_iter)
 
-            print('epoch = {}, iter = {} of {} completed,lr={}, loss = {}'.format(epoch, i_iter, total_iters,lr, loss.data.cpu().numpy())) 
+            print('epoch = {}, iter = {} of {} completed,lr={:.4f}, loss = {:.4f}, IoU_loss = {:.4f}, BCE_loss = {:.4f}'.format(epoch, i_iter, total_iters,lr, loss.data.cpu().numpy(),loss1.data.cpu().numpy(),loss2.data.cpu().numpy())) 
         if epoch%args.save_step == 0 or epoch==args.epochs:
             time.sleep(10)
             save_checkpoint(model,epoch,optimizer)

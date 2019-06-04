@@ -3,20 +3,19 @@ uname -a
 #date
 #env
 date
-
 CS_PATH='/home/liuwu1/notespace/dataset/CIHP/train'
-LR=1e-2
+LR=1e-3
 WD=5e-4
 BS=8
 GPU_IDS=0,1,2,3
-RESTORE_FROM='../../models/resnet101-imagenet.pth'
+RESTORE_FROM='./models/CIHP_CCNet_global/LIP_epoch_59.pth'
 INPUT_SIZE='480,480'
-SNAPSHOT_DIR='./models/LIP_CIHP_CCNet/'
+SNAPSHOT_DIR='./models/CIHP_CCNet_global1/'
 DATASET='train'
 NUM_CLASSES=20
 EPOCHS=30
 START=0
-LIST_PATH='/home/liuwu1/notespace/dataset/LIP/LIP_CIHP_train_path_new.txt'
+LIST_PATH='/home/liuwu1/notespace/dataset/CIHP/CIHP_repeat_train_id_label_global.txt'
 SAVE_STEP=2
 
 if [[ ! -e ${SNAPSHOT_DIR} ]]; then

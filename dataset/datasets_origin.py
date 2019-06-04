@@ -27,8 +27,8 @@ class LIPDataSet(data.Dataset):
         self.dataset = dataset
 
         self.im_list = [i_id.strip() for i_id in open(list_path)]
-        self.im_list = self.im_list[:400]
-        # self.number_samples = len(self.im_list)
+        #self.im_list = self.im_list[:400]
+        self.number_samples = len(self.im_list)
         print ('Len Test Images: ',len(self.im_list),list_path)
 
     def __len__(self):
