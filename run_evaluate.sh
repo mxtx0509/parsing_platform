@@ -1,15 +1,15 @@
 #!/bin/bash
 
 CS_PATH='/home/liuwu1/notespace/dataset/LIP/'
-BS=8
+BS=32
 GPU_IDS='0,1,2,3'
 INPUT_SIZE='480,480'
-SNAPSHOT_FROM='train_test/DenseASPP/models/LIP_CIHP_DenseASPP/LIP_epoch_29.pth'
+SNAPSHOT_FROM='train_test/HRNet_origin/models/LIP_HRNet_origin_iou/LIP_epoch_2.pth'
 DATASET='val'
 NUM_CLASSES=20
 OUTPUTS='./outputs/denseaspp/'
 LIST_PATH='/home/liuwu1/notespace/dataset/LIP/val_id.txt'
-MODEL='denseaspp'
+MODEL='ce2p'
 M_RATE=0.8
 
 python evaluate.py --data-dir ${CS_PATH} \
