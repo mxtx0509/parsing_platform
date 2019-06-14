@@ -1,15 +1,15 @@
 #!/bin/bash
 
 CS_PATH='/home/liuwu1/notespace/dataset/LIP/'
-BS=32
+BS=16
 GPU_IDS='0,1,2,3'
 INPUT_SIZE='480,480'
-SNAPSHOT_FROM='train_test/HRNet_origin/models/LIP_HRNet_origin_iou/LIP_epoch_2.pth'
-DATASET='val'
+SNAPSHOT_FROM='train_test/HRNet_origin/models/LIP_HRNet_origin_iou/LIP_epoch_9.pth'
+DATASET='hrnet_origin'
 NUM_CLASSES=20
 OUTPUTS='./outputs/denseaspp/'
 LIST_PATH='/home/liuwu1/notespace/dataset/LIP/val_id.txt'
-MODEL='ce2p'
+MODEL='hrnet_origin'
 M_RATE=0.8
 
 python evaluate.py --data-dir ${CS_PATH} \

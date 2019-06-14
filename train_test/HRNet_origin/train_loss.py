@@ -199,9 +199,9 @@ def main():
         state_dict_pretrain = saved_state_dict
         
         for state_name in state_dict_pretrain:
-            state_name_new=state_name[6:]
-            if state_name_new in new_params:
-                new_params[state_name_new] = state_dict_pretrain[state_name]
+            #state_name_new=state_name[6:]
+            if state_name in new_params:
+                new_params[state_name] = state_dict_pretrain[state_name]
                 # print ('LOAD',state_name)
             else:
                 print ('NOT LOAD',state_name)
@@ -212,8 +212,14 @@ def main():
     model.cuda()
 
     criterion = LovaszSoftmax(input_size)
+    print('LOSS1: LovaszSoftmax')
     criterion = DataParallelCriterion(criterion)
     criterion.cuda()
+    
+    criterion_softmax = CriterionAll()
+    print('LOSS2: CriterionAll')
+    criterion_softmax = DataParallelCriterion(criterion_softmax)
+    criterion_softmax.cuda()
 
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
@@ -266,8 +272,11 @@ def main():
             images, labels, _ = batch
             labels = labels.long().cuda(non_blocking=True)
             preds = model(images)
-            loss = criterion(preds,labels)
-            #loss = L.lovasz_softmax(preds, labels, input_size, ignore=255)
+        
+            loss1 = criterion(preds,labels)
+            loss2 = criterion_softmax(preds,labels)
+            loss = loss1 + loss2
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -299,7 +308,7 @@ def main():
                 # writer.add_image('Edges/', edge, i_iter)
                 # writer.add_image('PredEdges/', pred_edge, i_iter)
 
-            print('epoch = {}, iter = {} of {} completed,lr={}, loss = {}'.format(epoch, i_iter, total_iters,lr, loss.data.cpu().numpy())) 
+            print('epoch = {}, iter = {} of {} completed,lr={:.4f}, loss = {:.4f}, IoU_loss = {:.4f}, BCE_loss = {:.4f}'.format(epoch, i_iter, total_iters,lr, loss.data.cpu().numpy(),loss1.data.cpu().numpy(),loss2.data.cpu().numpy())) 
         if epoch%args.save_step == 0 or epoch==args.epochs:
             time.sleep(10)
             save_checkpoint(model,epoch,optimizer)

@@ -1,10 +1,10 @@
 #!/bin/bash
 
 CS_PATH='/home/liuwu1/notespace/dataset/LIP/'
-BS=32
+BS=16
 GPU_IDS='0,1,2,3'
 INPUT_SIZE='480,480'
-SNAPSHOT_FROM='models/LIP_HRNet_origin_iou/LIP_epoch_2.pth'
+SNAPSHOT_FROM='./models/LIP_HRNet_origin/LIP_epoch_29.pth'
 DATASET='val'
 NUM_CLASSES=20
 OUTPUTS='./outputs/CIHP_LIP_HRNet_ohem/'
