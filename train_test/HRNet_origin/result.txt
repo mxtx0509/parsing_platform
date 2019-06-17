@@ -1,0 +1,9 @@
+HRNet 
+softmax 59.10
+L 59.56
+softmax + L 59.56
+softmax + L 61.0
+L ?
+ohem + L
+ohem + L + softmax 
+
