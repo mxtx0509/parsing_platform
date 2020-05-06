@@ -269,7 +269,7 @@ class ResNet(nn.Module):
         return seg1 #zm#[[seg1, seg2], [edge]] 
 
 
-def CE2P_Deeplab(num_classes=21):
-    model = ResNet(Bottleneck,[3, 4, 23, 3], num_classes)
+def get_seg_model(args):
+    model = ResNet(Bottleneck,[3, 4, 23, 3], args.num_classes)
     return model
 

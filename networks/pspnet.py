@@ -155,6 +155,6 @@ class ResNet(nn.Module):
         return [x, x_dsn]
 
 
-def Res_Deeplab(num_classes=21):
-    model = ResNet(Bottleneck,[3, 4, 23, 3], num_classes)
+def get_seg_model(args)):
+    model = ResNet(Bottleneck,[3, 4, 23, 3], args.num_classes)
     return model

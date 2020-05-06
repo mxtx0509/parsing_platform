@@ -210,6 +210,9 @@ class _Transition(nn.Sequential):
         if stride == 2:
             self.add_module('pool', nn.AvgPool2d(kernel_size=2, stride=stride))
 
+def get_seg_model(args)):
+    model = DenseASPP(args.num_classes)
+    return model
 
 if __name__ == "__main__":
     model = DenseASPP(2)

@@ -10,12 +10,12 @@ from utils.transforms import get_affine_transform
 
 
 class LIPDataSet(data.Dataset):
-    def __init__(self, root, dataset, crop_size=[473, 473], scale_factor=0.25,
+    def __init__(self,args, crop_size=[473, 473], scale_factor=0.25,
                  rotation_factor=30, ignore_label=255, transform=None,list_path='/home/liuwu1/notespace/dataset/LIP/LIP_CIHP_train_path_new.txt' ):
         """
         :rtype:
         """
-        self.root = root
+        self.root = args.data_dir
         self.aspect_ratio = crop_size[1] * 1.0 / crop_size[0]
         self.crop_size = np.asarray(crop_size)
         self.ignore_label = ignore_label
@@ -24,13 +24,12 @@ class LIPDataSet(data.Dataset):
         self.flip_prob = 0.5
         self.flip_pairs = [[0, 5], [1, 4], [2, 3], [11, 14], [12, 13], [10, 15]]
         self.transform = transform
-        self.dataset = dataset
-
-        # list_path = os.path.join('/home/liuwu1/notespace/dataset/LIP/LIP_CIHP_train_path_new.txt')
+        self.dataset = args.dataset
         print ('ListPath is',list_path)
 
         self.im_list = [i_id.strip() for i_id in open(list_path)]
-        num_gpu = 4
+        gpus = [int(i) for i in args.gpu.split(',')]
+        num_gpu = len(gpus)
         length = int(len(self.im_list)/num_gpu)*num_gpu
         self.im_list = self.im_list[0:length]
         print ('Len is:', len(self.im_list),'    GPU Num is:',num_gpu)

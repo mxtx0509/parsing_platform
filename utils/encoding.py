@@ -142,17 +142,13 @@ class DataParallelCriterion(DataParallel):
     """
     Calculate loss in multiple-GPUs, which balance the memory usage for
     Semantic Segmentation.
-
     The targets are splitted across the specified devices by chunking in
     the batch dimension. Please use together with :class:`encoding.parallel.DataParallelModel`.
-
     Reference:
         Hang Zhang, Kristin Dana, Jianping Shi, Zhongyue Zhang, Xiaogang Wang, Ambrish Tyagi,
         Amit Agrawal. “Context Encoding for Semantic Segmentation.
         *The IEEE Conference on Computer Vision and Pattern Recognition (CVPR) 2018*
-
     Example::
-
         >>> net = encoding.nn.DataParallelModel(model, device_ids=[0, 1, 2])
         >>> criterion = encoding.nn.DataParallelCriterion(criterion, device_ids=[0, 1, 2])
         >>> y = net(x)

@@ -535,7 +535,7 @@ class HighResolutionNet(nn.Module):
             self.load_state_dict(model_dict)
 
 
-def get_cls_net(config, **kwargs):
+def get_seg_model(config, **kwargs):
     model = HighResolutionNet(config, **kwargs)
     # model.init_weights()
     return model

@@ -18,7 +18,8 @@ import torch
 import torch.nn as nn
 import torch._utils
 import torch.nn.functional as F
-
+from .hrnet_config import config
+from .hrnet_config import update_config
 from libs import InPlaceABN, InPlaceABNSync
 BatchNorm2d = functools.partial(InPlaceABNSync, activation='none')
 BN_MOMENTUM = 0.01
@@ -473,8 +474,10 @@ class HighResolutionNet(nn.Module):
             model_dict.update(pretrained_dict)
             self.load_state_dict(model_dict)
 
-def get_seg_model(cfg,num_classes, **kwargs):
-    model = HighResolutionNet(cfg,num_classes, **kwargs)
+def get_seg_model(args):
+    update_config(config, args)
+    model = HighResolutionNet(config,args.num_classes)
     # model.init_weights(cfg.MODEL.PRETRAINED)
+    print('----------------HRNet-----------------')
 
     return model

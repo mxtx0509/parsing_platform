@@ -15,6 +15,7 @@ core*
 
 data/
 models
+checkpoints
 output
 logs
 outputs
